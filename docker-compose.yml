@@ -1,0 +1,8 @@
+services:
+  stockoverview:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config:/data
+    restart: unless-stopped

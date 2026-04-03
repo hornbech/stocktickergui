@@ -1,0 +1,14 @@
+{
+  "currency": "USD",
+  "tickers": [
+    "AAPL",
+    "MSFT"
+  ],
+  "holdings": [
+    {
+      "symbol": "AAPL",
+      "shares": 10,
+      "avgPrice": 150.00
+    }
+  ]
+}

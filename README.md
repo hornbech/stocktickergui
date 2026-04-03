@@ -1,66 +1,490 @@
 # Stock Overview Dashboard
 
-A real-time stock ticker dashboard built with Angular 19, Express.js proxy, and Docker.
+A real-time stock ticker dashboard for tracking equities and ETFs across global markets. Built with Angular 19, an Express.js backend proxy, and packaged in Docker for one-command deployment.
+
+![Docker](https://img.shields.io/badge/Docker-required-blue) ![Angular](https://img.shields.io/badge/Angular-19-red) ![Node](https://img.shields.io/badge/Node-22-green) ![License](https://img.shields.io/badge/License-MIT-yellow)
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+  - [Portfolio Config File](#portfolio-config-file)
+  - [Environment Variables](#environment-variables)
+  - [Tunable Parameters](#tunable-parameters)
+- [Architecture](#architecture)
+  - [System Overview](#system-overview)
+  - [Docker Build Stages](#docker-build-stages)
+  - [Frontend Structure](#frontend-structure)
+  - [Backend Proxy](#backend-proxy)
+- [API Reference](#api-reference)
+  - [Stock Data](#stock-data)
+  - [Portfolio Management](#portfolio-management)
+  - [Currency](#currency)
+- [Currency Handling](#currency-handling)
+- [Data Sources](#data-sources)
+- [Local Development](#local-development)
+- [Troubleshooting](#troubleshooting)
+
+---
 
 ## Features
 
-- **Add/remove stock tickers** with search autocomplete
-- **GAV/GAK portfolio tracking** — enter your average purchase price and shares held
-- **USD/DKK currency toggle** with live exchange rates
-- **Pre-market & after-hours** data display
-- **Interactive charts** with TradingView Lightweight Charts (1D, 5D, 1M, 3M, 1Y, 5Y)
-- **Auto-refresh** every 30 seconds during market hours
-- **Dark theme** with responsive layout
-- Data persisted in browser localStorage
+- **Real-time stock quotes** with 30-second auto-refresh (pauses when the browser tab is hidden)
+- **Ticker search** with autocomplete via Yahoo Finance (supports equities and ETFs)
+- **Interactive candlestick charts** powered by TradingView Lightweight Charts with selectable ranges: 1D, 5D, 1M, 3M, 1Y, 5Y
+- **Volume overlay** displayed alongside price data on all chart intervals
+- **Pre-market and after-hours** prices shown when the market is in extended hours
+- **Market status indicator** per ticker (Pre-Market, Open, After Hours, Closed)
+- **GAK/GAV portfolio tracking** -- enter your average purchase price (GAK) and number of shares to see unrealized P&L; works without GAK too, showing just the current value
+- **Multi-currency display** -- each stock shows prices in its native currency (USD, GBP, EUR, DKK, etc.) with a currency badge on the card
+- **USD/DKK toggle** for portfolio totals -- the summary table converts all holdings to your chosen display currency using live exchange rates
+- **Sub-unit currency support** -- GBp (pence) is automatically converted to GBP for display; same for ILA (agorot) to ILS
+- **File-based persistence** -- portfolio config is stored in `config/portfolio.json`, mounted as a Docker volume so data survives container restarts
+- **Dark theme** with responsive layout that works on desktop and tablet
+- **No API keys required** -- uses Yahoo Finance and Frankfurter API, both free and keyless
+
+---
 
 ## Quick Start
 
+**Prerequisites:** Docker and Docker Compose
+
 ```bash
+# 1. Clone the repository
+git clone https://github.com/hornbech/stocktickergui.git
+cd stocktickergui
+
+# 2. Create your portfolio config from the example
+cp config/portfolio.example.json config/portfolio.json
+
+# 3. Build and run
 docker compose up --build
 ```
 
-Open [http://localhost:8080](http://localhost:8080)
+Open **http://localhost:8080** in your browser.
 
-That's it. No NPM, Node, or any other dependency needed on your machine — just Docker.
+No NPM, Node.js, or any other dependency is needed on your machine -- everything builds inside Docker.
 
-## Architecture
-
-```
-┌─────────────┐     ┌──────────────┐     ┌───────────────────┐
-│   Browser    │────▶│    nginx     │────▶│  Express Proxy    │
-│  (Angular)   │◀────│  (port 80)  │◀────│  (port 3000)      │
-└─────────────┘     └──────────────┘     └───────────────────┘
-                                                   │
-                                          ┌────────┴────────┐
-                                          │  Yahoo Finance  │
-                                          │  Frankfurter FX │
-                                          └─────────────────┘
-```
-
-- **Angular SPA** — built at Docker build time, served as static files by nginx
-- **Express.js proxy** — fetches stock data from Yahoo Finance and currency rates from Frankfurter API
-- **nginx** — serves the frontend and reverse-proxies `/api/*` to the Express backend
-- All three run inside a single Docker container
-
-## Data Sources
-
-- **Stock data**: Yahoo Finance (via `yahoo-finance2` npm package) — no API key required
-- **Currency rates**: [Frankfurter API](https://frankfurter.dev/) — free, no API key required
-
-## Development
-
-If you want to develop locally outside Docker:
+To run in the background:
 
 ```bash
-# Terminal 1: proxy
-cd proxy && npm install && node server.js
-
-# Terminal 2: frontend (requires Node.js and Angular CLI)
-cd frontend && npm install && npx ng serve --proxy-config proxy.conf.json
+docker compose up --build -d
 ```
+
+To stop:
+
+```bash
+docker compose down
+```
+
+---
 
 ## Configuration
 
-- **Port**: Change the port mapping in `docker-compose.yml` (default: 8080)
-- **Refresh interval**: Hardcoded to 30 seconds in `dashboard.component.ts`
-- **Quote cache TTL**: 10 seconds, configurable in `proxy/server.js`
+### Portfolio Config File
+
+The application reads and writes `config/portfolio.json` at runtime. This file is volume-mounted into the container, so it persists across restarts and can be edited directly.
+
+A boilerplate is provided at `config/portfolio.example.json`:
+
+```json
+{
+  "currency": "USD",
+  "tickers": [
+    "AAPL",
+    "MSFT"
+  ],
+  "holdings": [
+    {
+      "symbol": "AAPL",
+      "shares": 10,
+      "avgPrice": 150.00
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `currency` | `"USD"` or `"DKK"` | Display currency for portfolio summary totals |
+| `tickers` | `string[]` | List of ticker symbols to track (e.g., `"AAPL"`, `"CNA.L"`, `"NOVO-B.CO"`) |
+| `holdings` | `object[]` | Your positions; each has `symbol`, `shares`, and `avgPrice` (GAK) |
+| `holdings[].symbol` | `string` | Ticker symbol, must match a ticker in the `tickers` array |
+| `holdings[].shares` | `number` | Number of shares held |
+| `holdings[].avgPrice` | `number` | Average purchase price per share (GAK) in the stock's native currency. Set to `0` if unknown -- the dashboard will still show the current value |
+
+Changes made through the web UI (adding/removing tickers, updating holdings, changing currency) are written back to this file automatically.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFIG_PATH` | `/data/portfolio.json` | Path to the portfolio config file inside the container |
+
+### Tunable Parameters
+
+These are hardcoded but easy to change in the source:
+
+| Parameter | Location | Default | Description |
+|-----------|----------|---------|-------------|
+| Host port | `docker-compose.yml` | `8080` | Port exposed on the host machine |
+| Auto-refresh interval | `frontend/src/app/components/dashboard/dashboard.component.ts` | `30000` ms | How often quotes are fetched |
+| Quote cache TTL | `proxy/server.js` (`QUOTE_TTL`) | `10000` ms | How long quotes are cached in the proxy |
+| Currency rate cache TTL | `proxy/server.js` (`CURRENCY_TTL`) | `300000` ms | How long exchange rates are cached (5 min) |
+
+---
+
+## Architecture
+
+### System Overview
+
+```
+                  ┌──────────────────────────────────────────────────┐
+                  │              Docker Container                    │
+                  │                                                  │
+┌─────────┐       │  ┌──────────┐         ┌────────────────────┐     │
+│         │  :80  │  │          │  /api/*  │                    │     │
+│ Browser ├──────►│  │  nginx   ├────────► │  Express Proxy     │     │
+│         │◄──────┤  │          │◄────────┤│  (localhost:3000)  │     │
+└─────────┘       │  └────┬─────┘         └──────┬─────────────┘     │
+                  │       │                      │                   │
+                  │       │ Static files          │ Yahoo Finance    │
+                  │       │ (Angular SPA)         │ Frankfurter API  │
+                  │       │                      │                   │
+                  │  /usr/share/nginx/html   /data/portfolio.json    │
+                  └──────────────────────────────────────────────────┘
+                                                  │
+                                            ┌─────┴─────┐
+                                            │  ./config  │  (volume mount)
+                                            └───────────┘
+```
+
+**nginx** serves the pre-built Angular SPA as static files and reverse-proxies all `/api/*` requests to the Express backend running on `localhost:3000` inside the same container.
+
+**Express proxy** handles all external API calls (Yahoo Finance for stock data, Frankfurter for exchange rates) and manages the portfolio config file. This avoids CORS issues and keeps external API details out of the browser.
+
+**Angular SPA** is a standalone single-page application using Angular 19 signals for state management. It communicates exclusively with the Express proxy via `/api/*` endpoints.
+
+### Docker Build Stages
+
+The `Dockerfile` uses a three-stage build:
+
+| Stage | Base Image | Purpose |
+|-------|-----------|---------|
+| `frontend-build` | `node:22-alpine` | Installs Angular CLI, runs `npm install`, builds the production Angular bundle |
+| `proxy-deps` | `node:22-alpine` | Installs Express proxy production dependencies |
+| Runtime | `node:22-alpine` + nginx | Copies the built Angular files to nginx's HTML root, copies proxy code and node_modules, runs both nginx and the Express proxy |
+
+The final image contains only production artifacts -- no build tools, dev dependencies, or source maps.
+
+### Frontend Structure
+
+```
+frontend/src/app/
+├── app.component.ts              # Root component, hosts the dashboard
+├── app.config.ts                 # Angular providers (HttpClient, zone)
+├── models/
+│   ├── stock.model.ts            # StockQuote, ChartDataPoint, SearchResult, ChartRange interfaces
+│   └── portfolio.model.ts        # PortfolioEntry interface
+├── services/
+│   ├── stock.service.ts          # HTTP client for /api/quote, /api/chart, /api/search
+│   ├── currency.service.ts       # Exchange rates, formatting, native/converted display
+│   └── portfolio.service.ts      # Portfolio CRUD, syncs with backend /api/portfolio
+└── components/
+    ├── dashboard/                # Main layout, orchestrates data flow and auto-refresh
+    ├── ticker-input/             # Search input with autocomplete dropdown
+    ├── stock-card/               # Per-ticker card: price, change, stats, holdings form
+    ├── stock-chart/              # TradingView Lightweight Charts wrapper (candlestick + volume)
+    ├── portfolio-summary/        # Aggregated portfolio table with converted totals
+    ├── currency-toggle/          # USD/DKK toggle button with rate display
+    └── market-status/            # Market state indicator badge (Pre-Market, Open, etc.)
+```
+
+All components use Angular standalone components (no NgModules). State is managed with Angular signals.
+
+### Backend Proxy
+
+`proxy/server.js` is a single-file Express server (ESM) with these responsibilities:
+
+- **Quote fetching** via `yahoo-finance2` v3 with a 10-second per-symbol cache
+- **Ticker search** via Yahoo Finance search API, filtered to equities and ETFs
+- **Chart data** via Yahoo Finance chart API, returning OHLCV data for Lightweight Charts
+- **Exchange rates** via the Frankfurter API, cached for 5 minutes, with sub-unit currency support (GBp, ILA)
+- **Portfolio CRUD** reading/writing `config/portfolio.json` on every mutation
+
+---
+
+## API Reference
+
+All endpoints are served at `/api/*` and proxied by nginx to the Express backend.
+
+### Stock Data
+
+#### `GET /api/quote/:symbols`
+
+Fetch real-time quotes for one or more comma-separated symbols.
+
+```
+GET /api/quote/AAPL,MSFT,CNA.L
+```
+
+**Response:** Array of quote objects:
+
+```json
+[
+  {
+    "symbol": "AAPL",
+    "shortName": "Apple Inc.",
+    "currency": "USD",
+    "regularMarketPrice": 255.92,
+    "regularMarketChange": 0.29,
+    "regularMarketChangePercent": 0.11,
+    "regularMarketDayHigh": 256.13,
+    "regularMarketDayLow": 250.65,
+    "regularMarketVolume": 26686584,
+    "averageDailyVolume3Month": 47781611,
+    "regularMarketPreviousClose": 255.63,
+    "fiftyTwoWeekHigh": 288.62,
+    "fiftyTwoWeekLow": 169.21,
+    "marketCap": 3761492983808,
+    "trailingPE": 32.35,
+    "marketState": "CLOSED",
+    "preMarketPrice": null,
+    "preMarketChange": null,
+    "preMarketChangePercent": null,
+    "postMarketPrice": 255.35,
+    "postMarketChange": -0.57,
+    "postMarketChangePercent": -0.22
+  }
+]
+```
+
+The `currency` field reflects the stock's native trading currency (e.g., `"USD"`, `"GBp"`, `"DKK"`, `"EUR"`).
+
+#### `GET /api/search?q=:query`
+
+Search for tickers by name or symbol. Returns up to 10 results, filtered to equities and ETFs.
+
+```
+GET /api/search?q=Apple
+```
+
+**Response:**
+
+```json
+[
+  { "symbol": "AAPL", "name": "Apple Inc.", "exchange": "NMS", "type": "EQUITY" },
+  { "symbol": "APLE", "name": "Apple Hospitality REIT, Inc.", "exchange": "NYQ", "type": "EQUITY" }
+]
+```
+
+#### `GET /api/chart/:symbol?range=:range&interval=:interval`
+
+Fetch OHLCV chart data for a symbol.
+
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| `range` | `1d`, `5d`, `1mo`, `3mo`, `1y`, `5y` | Time range |
+| `interval` | `5m`, `15m`, `1d`, `1wk`, `1mo` | Candle interval |
+
+```
+GET /api/chart/AAPL?range=1mo&interval=1d
+```
+
+**Response:** Array of OHLCV data points:
+
+```json
+[
+  { "time": 1772548200, "open": 263.48, "high": 265.56, "low": 260.13, "close": 263.75, "volume": 38568900 }
+]
+```
+
+The `time` field is a Unix timestamp in seconds, compatible with TradingView Lightweight Charts.
+
+#### `GET /api/health`
+
+Health check endpoint.
+
+```json
+{ "status": "ok" }
+```
+
+### Portfolio Management
+
+#### `GET /api/portfolio`
+
+Returns the full portfolio config.
+
+#### `PUT /api/portfolio`
+
+Overwrites the entire portfolio config. Expects a JSON body with `currency`, `tickers`, and `holdings` fields.
+
+#### `POST /api/portfolio/ticker`
+
+Add a ticker to the watchlist.
+
+```json
+{ "symbol": "NVDA" }
+```
+
+#### `DELETE /api/portfolio/ticker/:symbol`
+
+Remove a ticker and its associated holding.
+
+```
+DELETE /api/portfolio/ticker/NVDA
+```
+
+#### `PUT /api/portfolio/holding`
+
+Add or update a holding. Set `shares` and `avgPrice` to `0` to remove a holding.
+
+```json
+{ "symbol": "AAPL", "shares": 25, "avgPrice": 142.50 }
+```
+
+All portfolio endpoints return the updated full config in the response.
+
+### Currency
+
+#### `GET /api/currency/rates`
+
+Returns all exchange rates relative to USD, sourced from the Frankfurter API. Cached for 5 minutes.
+
+```json
+{
+  "USD": 1,
+  "DKK": 6.4835,
+  "GBP": 0.75708,
+  "GBp": 75.708,
+  "EUR": 0.86768,
+  "SEK": 9.5421,
+  ...
+}
+```
+
+Includes synthetic sub-unit rates: `GBp` (British pence = GBP x 100) and `ILA` (Israeli agorot = ILS x 100).
+
+---
+
+## Currency Handling
+
+The application distinguishes between **native currency** and **display currency**:
+
+| Context | Currency used | Example |
+|---------|-------------|---------|
+| Stock price on card | Native (from Yahoo Finance) | CNA.L shows GBP 2.19 |
+| Day range, 52-week range | Native | Shown in the stock's trading currency |
+| Currency badge on card | Native label | `USD`, `GBX` (for GBp), `DKK`, `EUR` |
+| Portfolio summary totals | Display (user's choice: USD or DKK) | All holdings converted and summed |
+| Value column in portfolio table | Display | Converted to USD or DKK |
+| P&L column in portfolio table | Display | Converted to USD or DKK |
+| Price column in portfolio table | Native | Shown in the stock's trading currency |
+
+**Sub-unit currencies:** Yahoo Finance reports some stocks in sub-units (e.g., London Stock Exchange stocks in GBp = pence). The app automatically converts these to the major unit for display (GBp 218.50 becomes GBP 2.19) and handles the conversion correctly when aggregating into portfolio totals.
+
+**Exchange rate conversion path:** `source currency -> USD -> display currency`, using rates from the Frankfurter API.
+
+---
+
+## Data Sources
+
+| Data | Source | API Key | Rate Limit | Cache |
+|------|--------|---------|-----------|-------|
+| Stock quotes | [Yahoo Finance](https://finance.yahoo.com) via [`yahoo-finance2`](https://github.com/gadicc/node-yahoo-finance2) v3 | Not required | Unofficial; may throttle under heavy use | 10 sec per symbol |
+| Ticker search | Yahoo Finance search API | Not required | Same as above | None |
+| Chart data (OHLCV) | Yahoo Finance chart API | Not required | Same as above | None |
+| Exchange rates | [Frankfurter API](https://frankfurter.dev/) | Not required | None documented | 5 min |
+
+**Note:** Yahoo Finance is an unofficial data source. The `yahoo-finance2` library handles authentication (crumb/cookie) automatically. Under very heavy usage, Yahoo may rate-limit or temporarily block requests. The 10-second quote cache helps reduce request volume.
+
+---
+
+## Local Development
+
+For development outside Docker, you need Node.js 22+ installed.
+
+**Terminal 1 -- Backend proxy:**
+
+```bash
+cd proxy
+npm install
+node server.js
+```
+
+The proxy starts on `http://localhost:3000`. It will read/write `config/portfolio.json` relative to the `CONFIG_PATH` environment variable (defaults to `/data/portfolio.json`). For local dev, override it:
+
+```bash
+CONFIG_PATH=../config/portfolio.json node server.js
+```
+
+**Terminal 2 -- Angular frontend:**
+
+```bash
+cd frontend
+npm install
+npx ng serve --proxy-config proxy.conf.json
+```
+
+You will need to create `frontend/proxy.conf.json` to forward API calls to the Express proxy:
+
+```json
+{
+  "/api": {
+    "target": "http://localhost:3000",
+    "secure": false
+  }
+}
+```
+
+The Angular dev server starts on `http://localhost:4200` with hot reload.
+
+---
+
+## Troubleshooting
+
+**Container exits immediately after starting**
+
+Check the logs:
+
+```bash
+docker logs stockoverview-stockoverview-1
+```
+
+If you see `ENOENT` errors about `portfolio.json`, make sure you copied the example config:
+
+```bash
+cp config/portfolio.example.json config/portfolio.json
+```
+
+**Yahoo Finance rate limiting (HTTP 429)**
+
+The proxy caches quotes for 10 seconds per symbol. If you still get 429 errors, increase `QUOTE_TTL` in `proxy/server.js`. Restarting the container also resets any temporary blocks.
+
+**Quotes not updating**
+
+The dashboard pauses auto-refresh when the browser tab is hidden (to save API calls). Switch back to the tab and it resumes within 30 seconds.
+
+**Wrong currency shown for a stock**
+
+The currency comes directly from Yahoo Finance. Some exchanges use sub-unit currencies (e.g., GBp for pence on the London Stock Exchange). The app handles GBp and ILA automatically. If you encounter another sub-unit currency, it can be added to the `normalizeCurrencyCode` and `adjustSubunit` methods in `frontend/src/app/services/currency.service.ts` and the rates endpoint in `proxy/server.js`.
+
+**Port 8080 is already in use**
+
+Change the port mapping in `docker-compose.yml`:
+
+```yaml
+ports:
+  - "3080:80"  # Use port 3080 instead
+```
+
+**Docker build fails with dependency errors**
+
+Try a clean rebuild:
+
+```bash
+docker compose build --no-cache
+```

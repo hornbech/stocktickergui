@@ -20,6 +20,7 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
   - [Frontend Structure](#frontend-structure)
   - [Backend Proxy](#backend-proxy)
 - [API Reference](#api-reference)
+  - [Swagger UI](#swagger-ui)
   - [Stock Data](#stock-data)
   - [Portfolio Management](#portfolio-management)
   - [Currency](#currency)
@@ -45,6 +46,7 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 - **File-based persistence** -- portfolio config is stored in `config/portfolio.json`, mounted as a Docker volume so data survives container restarts
 - **Dark theme** with responsive layout that works on desktop and tablet
 - **No API keys required** -- uses Yahoo Finance and Frankfurter API, both free and keyless
+- **Swagger UI** at [`/api/docs/`](http://localhost:8080/api/docs/) for interactive API documentation and testing
 
 ---
 
@@ -220,6 +222,16 @@ All components use Angular standalone components (no NgModules). State is manage
 ## API Reference
 
 All endpoints are served at `/api/*` and proxied by nginx to the Express backend.
+
+### Swagger UI
+
+A full interactive API documentation is available at:
+
+```
+http://localhost:8080/api/docs/
+```
+
+The Swagger UI lets you browse all endpoints, view request/response schemas, and execute API calls directly from the browser. It is powered by an OpenAPI 3.0 spec defined inline in `proxy/server.js`.
 
 ### Stock Data
 

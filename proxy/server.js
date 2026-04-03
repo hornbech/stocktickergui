@@ -1,6 +1,7 @@
 import express from 'express';
 import YahooFinance from 'yahoo-finance2';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
+import swaggerUi from 'swagger-ui-express';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
@@ -9,6 +10,279 @@ app.use(express.json());
 const PORT = 3000;
 
 const CONFIG_PATH = process.env.CONFIG_PATH || '/data/portfolio.json';
+
+// --- Swagger / OpenAPI ---
+const swaggerSpec = {
+  openapi: '3.0.3',
+  info: {
+    title: 'Stock Overview API',
+    version: '1.0.0',
+    description: 'Backend proxy API for the Stock Overview Dashboard. Provides real-time stock quotes, historical chart data, ticker search, exchange rates, and portfolio management.',
+    contact: { name: 'Jacob Hornbech', url: 'https://github.com/hornbech/stocktickergui' }
+  },
+  servers: [{ url: '/api', description: 'API proxy (via nginx)' }],
+  tags: [
+    { name: 'Stock Data', description: 'Real-time quotes, search, and chart data from Yahoo Finance' },
+    { name: 'Portfolio', description: 'CRUD operations for tickers and holdings, persisted to config/portfolio.json' },
+    { name: 'Currency', description: 'Exchange rates from the Frankfurter API' },
+    { name: 'System', description: 'Health check and diagnostics' }
+  ],
+  paths: {
+    '/health': {
+      get: {
+        tags: ['System'],
+        summary: 'Health check',
+        description: 'Returns a simple status object to verify the API is running.',
+        responses: {
+          '200': {
+            description: 'API is healthy',
+            content: { 'application/json': { schema: { type: 'object', properties: { status: { type: 'string', example: 'ok' } } } } }
+          }
+        }
+      }
+    },
+    '/quote/{symbols}': {
+      get: {
+        tags: ['Stock Data'],
+        summary: 'Get real-time quotes',
+        description: 'Fetch real-time quotes for one or more ticker symbols. Quotes are cached for 10 seconds per symbol. Supports any symbol recognized by Yahoo Finance (US, UK, European, etc.).',
+        parameters: [{
+          name: 'symbols',
+          in: 'path',
+          required: true,
+          description: 'Comma-separated ticker symbols (e.g., `AAPL,MSFT,CNA.L`)',
+          schema: { type: 'string', example: 'AAPL,MSFT' }
+        }],
+        responses: {
+          '200': {
+            description: 'Array of quote objects',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/StockQuote' } } } }
+          },
+          '400': { description: 'No symbols provided' },
+          '500': { description: 'Yahoo Finance API error' }
+        }
+      }
+    },
+    '/search': {
+      get: {
+        tags: ['Stock Data'],
+        summary: 'Search for tickers',
+        description: 'Search for equity and ETF tickers by company name or symbol. Returns up to 10 results.',
+        parameters: [{
+          name: 'q',
+          in: 'query',
+          required: true,
+          description: 'Search query (company name or ticker symbol)',
+          schema: { type: 'string', example: 'Apple' }
+        }],
+        responses: {
+          '200': {
+            description: 'Array of search results',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/SearchResult' } } } }
+          },
+          '400': { description: 'Missing query parameter `q`' },
+          '500': { description: 'Yahoo Finance API error' }
+        }
+      }
+    },
+    '/chart/{symbol}': {
+      get: {
+        tags: ['Stock Data'],
+        summary: 'Get historical chart data',
+        description: 'Fetch OHLCV (Open, High, Low, Close, Volume) candlestick data for a symbol. The `time` field is a Unix timestamp in seconds, compatible with TradingView Lightweight Charts.',
+        parameters: [
+          { name: 'symbol', in: 'path', required: true, description: 'Ticker symbol', schema: { type: 'string', example: 'AAPL' } },
+          { name: 'range', in: 'query', required: false, description: 'Time range', schema: { type: 'string', enum: ['1d', '5d', '1mo', '3mo', '1y', '5y'], default: '1mo' } },
+          { name: 'interval', in: 'query', required: false, description: 'Candle interval', schema: { type: 'string', enum: ['5m', '15m', '1d', '1wk', '1mo'], default: '1d' } }
+        ],
+        responses: {
+          '200': {
+            description: 'Array of OHLCV data points',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/ChartDataPoint' } } } }
+          },
+          '500': { description: 'Yahoo Finance API error' }
+        }
+      }
+    },
+    '/currency/rates': {
+      get: {
+        tags: ['Currency'],
+        summary: 'Get exchange rates',
+        description: 'Returns all exchange rates relative to USD, sourced from the Frankfurter API. Cached for 5 minutes. Includes synthetic sub-unit rates: `GBp` (pence = GBP × 100) and `ILA` (agorot = ILS × 100).',
+        responses: {
+          '200': {
+            description: 'Object mapping currency codes to their USD exchange rate',
+            content: {
+              'application/json': {
+                schema: { type: 'object', additionalProperties: { type: 'number' } },
+                example: { USD: 1, DKK: 6.4835, GBP: 0.75708, GBp: 75.708, EUR: 0.86768, SEK: 9.5421 }
+              }
+            }
+          }
+        }
+      }
+    },
+    '/portfolio': {
+      get: {
+        tags: ['Portfolio'],
+        summary: 'Get portfolio config',
+        description: 'Returns the full portfolio configuration including display currency preference, tracked tickers, and holdings with GAK (average purchase price).',
+        responses: {
+          '200': { description: 'Portfolio config', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortfolioConfig' } } } }
+        }
+      },
+      put: {
+        tags: ['Portfolio'],
+        summary: 'Replace portfolio config',
+        description: 'Overwrites the entire portfolio configuration. The config is validated and persisted to `config/portfolio.json`.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/PortfolioConfig' } } }
+        },
+        responses: {
+          '200': { description: 'Updated portfolio config', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortfolioConfig' } } } },
+          '400': { description: 'Invalid config body' }
+        }
+      }
+    },
+    '/portfolio/ticker': {
+      post: {
+        tags: ['Portfolio'],
+        summary: 'Add a ticker',
+        description: 'Add a ticker symbol to the watchlist. Duplicates are ignored. The symbol is uppercased automatically.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', required: ['symbol'], properties: { symbol: { type: 'string', example: 'NVDA' } } } } }
+        },
+        responses: {
+          '200': { description: 'Updated portfolio config', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortfolioConfig' } } } },
+          '400': { description: 'Missing symbol' }
+        }
+      }
+    },
+    '/portfolio/ticker/{symbol}': {
+      delete: {
+        tags: ['Portfolio'],
+        summary: 'Remove a ticker',
+        description: 'Remove a ticker from the watchlist and delete its associated holding (if any).',
+        parameters: [{
+          name: 'symbol',
+          in: 'path',
+          required: true,
+          description: 'Ticker symbol to remove',
+          schema: { type: 'string', example: 'NVDA' }
+        }],
+        responses: {
+          '200': { description: 'Updated portfolio config', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortfolioConfig' } } } }
+        }
+      }
+    },
+    '/portfolio/holding': {
+      put: {
+        tags: ['Portfolio'],
+        summary: 'Update a holding',
+        description: 'Add or update a holding (shares and average purchase price / GAK). Set both `shares` and `avgPrice` to `0` to remove the holding. The `avgPrice` should be in the stock\'s native currency.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['symbol', 'shares', 'avgPrice'],
+                properties: {
+                  symbol: { type: 'string', example: 'AAPL' },
+                  shares: { type: 'number', example: 25 },
+                  avgPrice: { type: 'number', description: 'Average purchase price per share (GAK) in the stock\'s native currency', example: 142.50 }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          '200': { description: 'Updated portfolio config', content: { 'application/json': { schema: { $ref: '#/components/schemas/PortfolioConfig' } } } },
+          '400': { description: 'Missing symbol' }
+        }
+      }
+    }
+  },
+  components: {
+    schemas: {
+      StockQuote: {
+        type: 'object',
+        description: 'Real-time quote data for a single stock',
+        properties: {
+          symbol: { type: 'string', example: 'AAPL' },
+          shortName: { type: 'string', example: 'Apple Inc.' },
+          currency: { type: 'string', description: 'Native trading currency (e.g., USD, GBp, DKK, EUR)', example: 'USD' },
+          regularMarketPrice: { type: 'number', example: 255.92 },
+          regularMarketChange: { type: 'number', example: 0.29 },
+          regularMarketChangePercent: { type: 'number', example: 0.11 },
+          regularMarketDayHigh: { type: 'number', example: 256.13 },
+          regularMarketDayLow: { type: 'number', example: 250.65 },
+          regularMarketVolume: { type: 'integer', example: 26686584 },
+          averageDailyVolume3Month: { type: 'integer', example: 47781611 },
+          regularMarketPreviousClose: { type: 'number', example: 255.63 },
+          fiftyTwoWeekHigh: { type: 'number', example: 288.62 },
+          fiftyTwoWeekLow: { type: 'number', example: 169.21 },
+          marketCap: { type: 'integer', example: 3761492983808 },
+          trailingPE: { type: 'number', nullable: true, example: 32.35 },
+          marketState: { type: 'string', enum: ['PRE', 'REGULAR', 'POST', 'POSTPOST', 'CLOSED'], description: 'Current market session state', example: 'REGULAR' },
+          preMarketPrice: { type: 'number', nullable: true, example: 256.10 },
+          preMarketChange: { type: 'number', nullable: true, example: 0.47 },
+          preMarketChangePercent: { type: 'number', nullable: true, example: 0.18 },
+          postMarketPrice: { type: 'number', nullable: true, example: 255.35 },
+          postMarketChange: { type: 'number', nullable: true, example: -0.57 },
+          postMarketChangePercent: { type: 'number', nullable: true, example: -0.22 }
+        }
+      },
+      SearchResult: {
+        type: 'object',
+        description: 'Ticker search result',
+        properties: {
+          symbol: { type: 'string', example: 'AAPL' },
+          name: { type: 'string', example: 'Apple Inc.' },
+          exchange: { type: 'string', example: 'NMS' },
+          type: { type: 'string', enum: ['EQUITY', 'ETF'], example: 'EQUITY' }
+        }
+      },
+      ChartDataPoint: {
+        type: 'object',
+        description: 'Single OHLCV candlestick data point',
+        properties: {
+          time: { type: 'integer', description: 'Unix timestamp in seconds', example: 1772548200 },
+          open: { type: 'number', example: 263.48 },
+          high: { type: 'number', example: 265.56 },
+          low: { type: 'number', example: 260.13 },
+          close: { type: 'number', example: 263.75 },
+          volume: { type: 'integer', example: 38568900 }
+        }
+      },
+      PortfolioConfig: {
+        type: 'object',
+        description: 'Full portfolio configuration, persisted to config/portfolio.json',
+        properties: {
+          currency: { type: 'string', enum: ['USD', 'DKK'], description: 'Display currency for portfolio summary totals', example: 'USD' },
+          tickers: { type: 'array', items: { type: 'string' }, description: 'List of tracked ticker symbols', example: ['AAPL', 'MSFT', 'CNA.L'] },
+          holdings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Portfolio positions' }
+        }
+      },
+      Holding: {
+        type: 'object',
+        description: 'A single portfolio position',
+        properties: {
+          symbol: { type: 'string', example: 'AAPL' },
+          shares: { type: 'number', description: 'Number of shares held', example: 10 },
+          avgPrice: { type: 'number', description: 'Average purchase price per share (GAK) in the stock\'s native currency. Set to 0 if unknown.', example: 150.00 }
+        }
+      }
+    }
+  }
+};
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Stock Overview API Docs'
+}));
 
 // --- Caches ---
 const quoteCache = new Map();

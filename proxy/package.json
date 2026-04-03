@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "express": "^4.21.0",
+    "swagger-ui-express": "^5.0.0",
     "yahoo-finance2": "^3.14.0"
   }
 }

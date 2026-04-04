@@ -139,6 +139,28 @@ import { NewsItem } from '../../models/stock.model';
       color: var(--text-muted);
       font-size: 13px;
     }
+    @media (max-width: 768px) {
+      .news-ticker-container {
+        height: 38px;
+      }
+      .ticker-label {
+        padding: 0 10px;
+        font-size: 10px;
+        gap: 4px;
+      }
+      .ticker-label svg {
+        width: 13px;
+        height: 13px;
+      }
+      .ticker-item {
+        font-size: 12px;
+        gap: 6px;
+        padding: 0 10px;
+      }
+      .ticker-title {
+        max-width: 250px;
+      }
+    }
   `]
 })
 export class NewsTickerComponent implements OnInit, OnDestroy, OnChanges {

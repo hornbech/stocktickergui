@@ -479,3 +479,11 @@ docker compose build --no-cache
 **News ticker not showing**
 
 Check browser console for errors. Ensure symbols are added to watchlist, holdings, or pension.
+
+---
+
+## License & Contributing
+
+This project is open source, created by **Jacob Hornbech**.
+
+Feature requests and merge requests are welcome — feel free to open an issue or submit an MR!

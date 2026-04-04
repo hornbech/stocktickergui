@@ -45,6 +45,18 @@ import { CurrencyService, SUPPORTED_DISPLAY_CURRENCIES, DisplayCurrency } from '
       font-size: 12px;
       color: var(--text-muted);
     }
+    @media (max-width: 768px) {
+      .currency-toggle {
+        gap: 8px;
+      }
+      select {
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+      .rate {
+        display: none;
+      }
+    }
   `]
 })
 export class CurrencyToggleComponent {

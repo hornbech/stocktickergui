@@ -414,19 +414,77 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
     }
     @media (max-width: 768px) {
       .app-header {
-        padding: 12px 16px;
+        padding: 10px 12px;
         flex-direction: column;
-        gap: 12px;
+        gap: 8px;
+      }
+      .header-left {
+        gap: 8px;
+      }
+      .app-title {
+        font-size: 15px;
+        gap: 6px;
+      }
+      .app-title svg {
+        width: 18px;
+        height: 18px;
+      }
+      .last-updated {
+        font-size: 11px;
       }
       .main-content {
+        padding: 12px;
+        gap: 16px;
+      }
+      .view-toggle {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .view-toggle::-webkit-scrollbar {
+        display: none;
+      }
+      .view-toggle button {
+        padding: 8px 16px;
+        font-size: 12px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .overview-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .overview-card {
         padding: 16px;
       }
-      .cards-grid {
+      .overview-value {
+        font-size: 22px;
+      }
+      .overview-pnl {
+        font-size: 12px;
+      }
+      .overview-chart {
+        padding: 12px;
+      }
+      .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .chart-symbols {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .cards-grid, .loading-grid {
         grid-template-columns: 1fr;
       }
       .watchlist-toolbar {
         flex-direction: column;
         align-items: stretch;
+      }
+      .empty-state {
+        padding: 48px 16px;
       }
     }
   `]

@@ -236,6 +236,52 @@ interface ChartIndicators {
       padding: 40px;
       color: var(--text-muted);
     }
+    @media (max-width: 768px) {
+      .chart-container {
+        padding: 12px;
+      }
+      .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .chart-header h3 {
+        font-size: 14px;
+      }
+      .chart-controls {
+        width: 100%;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .range-buttons {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .range-buttons button {
+        padding: 6px 8px;
+        font-size: 11px;
+        flex: 1;
+        text-align: center;
+      }
+      .indicator-buttons {
+        width: 100%;
+      }
+      .indicator-btn {
+        padding: 5px 8px;
+        font-size: 10px;
+      }
+      .main-chart {
+        height: 250px;
+      }
+      .sub-chart {
+        height: 80px;
+      }
+      .macd-values {
+        gap: 8px;
+        font-size: 10px;
+      }
+    }
   `]
 })
 export class StockChartComponent implements OnChanges, OnDestroy {
@@ -377,7 +423,8 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     this.destroyCharts();
 
     const mainContainer = this.mainChartEl.nativeElement;
-    this.mainChart = this.createBaseChart(mainContainer, 350);
+    const isMobile = window.innerWidth <= 768;
+    this.mainChart = this.createBaseChart(mainContainer, isMobile ? 250 : 350);
 
     this.candleSeries = this.mainChart.addCandlestickSeries({
       upColor: '#3fb950',
@@ -548,7 +595,8 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
   private renderVolumeChart(data: any[]): void {
     const container = this.volumeChartEl.nativeElement;
-    this.volumeChart = this.createBaseChart(container, 100);
+    const isMobile = window.innerWidth <= 768;
+    this.volumeChart = this.createBaseChart(container, isMobile ? 80 : 100);
 
     this.volumeSeries = this.volumeChart.addHistogramSeries({
       priceFormat: { type: 'volume' },
@@ -579,7 +627,8 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
   private renderRSIChart(data: any[]): void {
     const container = this.rsiChartEl.nativeElement;
-    this.rsiChart = this.createBaseChart(container, 100);
+    const isMobile = window.innerWidth <= 768;
+    this.rsiChart = this.createBaseChart(container, isMobile ? 80 : 100);
 
     const closes = data.map(d => d.close);
     const periods = 14;
@@ -639,7 +688,8 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
   private renderMACDChart(data: any[]): void {
     const container = this.macdChartEl.nativeElement;
-    this.macdChart = this.createBaseChart(container, 100);
+    const isMobile = window.innerWidth <= 768;
+    this.macdChart = this.createBaseChart(container, isMobile ? 80 : 100);
 
     const closes = data.map(d => d.close);
     

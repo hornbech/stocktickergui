@@ -425,6 +425,58 @@ interface PensionItem {
       from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    @media (max-width: 768px) {
+      .summary-header {
+        padding: 12px 14px;
+      }
+      .add-form {
+        padding: 12px 14px;
+        flex-direction: column;
+      }
+      .add-form input[type="number"] {
+        max-width: none;
+      }
+      .add-form button {
+        width: 100%;
+      }
+      .cards-grid {
+        grid-template-columns: 1fr;
+        padding: 12px 14px;
+      }
+      .table-header {
+        display: none;
+      }
+      .table-row, .table-footer {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 12px 14px;
+      }
+      .table-row {
+        position: relative;
+        padding-right: 36px;
+      }
+      .table-row .ticker {
+        grid-column: 1 / -1;
+        font-size: 14px;
+      }
+      .table-row .editable-cell input {
+        width: 100%;
+      }
+      .table-row .actions {
+        position: absolute;
+        top: 12px;
+        right: 10px;
+      }
+      .table-footer {
+        grid-template-columns: 1fr 1fr;
+      }
+      .table-footer span:nth-child(2),
+      .table-footer span:nth-child(3),
+      .table-footer span:nth-child(4),
+      .table-footer span:nth-child(7) {
+        display: none;
+      }
+    }
   `]
 })
 export class PensionSummaryComponent implements OnInit {

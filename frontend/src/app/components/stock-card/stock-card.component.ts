@@ -469,6 +469,32 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
     .rating-strongBuy, .rating-buy { background: rgba(34, 197, 94, 0.15); color: var(--green); }
     .rating-hold { background: rgba(234, 179, 8, 0.15); color: #eab308; }
     .rating-sell, .rating-strongSell { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+    @media (max-width: 768px) {
+      .card {
+        padding: 14px;
+      }
+      .symbol {
+        font-size: 16px;
+      }
+      .name {
+        max-width: 160px;
+        font-size: 11px;
+      }
+      .current-price {
+        font-size: 22px;
+      }
+      .change {
+        font-size: 12px;
+        margin-left: 6px;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .form-row input {
+        width: 100px;
+      }
+    }
   `]
 })
 export class StockCardComponent {

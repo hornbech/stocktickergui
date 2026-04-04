@@ -206,11 +206,11 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
       }
 
       @if (activeView() === 'holdings') {
-        <app-holdings-summary [quotes]="quotes()"></app-holdings-summary>
+        <app-holdings-summary [quotes]="quotes()" (portfolioChanged)="fetchAllQuotes()"></app-holdings-summary>
       }
 
       @if (activeView() === 'pension') {
-        <app-pension-summary [quotes]="quotes()"></app-pension-summary>
+        <app-pension-summary [quotes]="quotes()" (portfolioChanged)="fetchAllQuotes()"></app-pension-summary>
       }
     </main>
   `,
@@ -606,7 +606,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedSymbol.set(symbol);
   }
 
-  private fetchAllQuotes(): void {
+  fetchAllQuotes(): void {
     const watchlist = this.portfolioService.tickers();
     const holdings = this.portfolioService.entries().map(e => e.symbol);
     const pension = this.portfolioService.pensionSymbols();

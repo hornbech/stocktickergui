@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, signal, computed } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StockQuote, SearchResult } from '../../models/stock.model';
@@ -387,6 +387,7 @@ interface HoldingItem {
 })
 export class HoldingsSummaryComponent {
   @Input() quotes: Map<string, StockQuote> = new Map();
+  @Output() portfolioChanged = new EventEmitter<void>();
 
   showAddForm = false;
   newSymbol = '';
@@ -467,20 +468,15 @@ export class HoldingsSummaryComponent {
     if (!this.newSymbol) return;
 
     const upper = this.newSymbol.toUpperCase();
-    
-    this.stockService.getQuotes([upper]).subscribe(quotes => {
-      for (const q of quotes) {
-        this.quotes.set(q.symbol, q);
-      }
-      
-      this.portfolioService.updateHolding(upper, this.newShares, this.newAvgPrice);
-      this.resetForm();
-      this.showAddForm = false;
-    });
+    this.portfolioService.updateHolding(upper, this.newShares, this.newAvgPrice);
+    this.resetForm();
+    this.showAddForm = false;
+    this.portfolioChanged.emit();
   }
 
   removeHolding(symbol: string): void {
     this.portfolioService.updateHolding(symbol.toUpperCase(), 0, 0);
+    this.portfolioChanged.emit();
   }
 
   holdingItemValue(item: HoldingItem): number {

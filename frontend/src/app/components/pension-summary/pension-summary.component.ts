@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, signal, computed } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StockQuote, SearchResult } from '../../models/stock.model';
@@ -398,6 +398,7 @@ interface PensionItem {
 })
 export class PensionSummaryComponent implements OnInit {
   @Input() quotes: Map<string, StockQuote> = new Map();
+  @Output() portfolioChanged = new EventEmitter<void>();
 
   showAddForm = false;
   newSymbol = '';
@@ -441,20 +442,7 @@ export class PensionSummaryComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {
-    this.loadPensionQuotes();
-  }
-
-  private loadPensionQuotes(): void {
-    const symbols = this.portfolioService.pensionSymbols();
-    if (symbols.length === 0) return;
-
-    this.stockService.getQuotes(symbols).subscribe(quotes => {
-      for (const q of quotes) {
-        this.quotes.set(q.symbol, q);
-      }
-    });
-  }
+  ngOnInit(): void {}
 
   toggleAddForm(): void {
     this.showAddForm = !this.showAddForm;
@@ -494,20 +482,14 @@ export class PensionSummaryComponent implements OnInit {
 
     const upper = this.newSymbol.toUpperCase();
     this.portfolioService.updatePensionHolding(upper, this.newShares, this.newAvgPrice);
-
-    this.stockService.getQuotes([upper]).subscribe(quotes => {
-      for (const q of quotes) {
-        this.quotes.set(q.symbol, q);
-      }
-    });
-
     this.resetForm();
     this.showAddForm = false;
+    this.portfolioChanged.emit();
   }
 
   removePension(symbol: string): void {
     this.portfolioService.removePensionTicker(symbol);
-    this.quotes.delete(symbol.toUpperCase());
+    this.portfolioChanged.emit();
   }
 
   pensionItemValue(item: PensionItem): number {

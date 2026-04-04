@@ -733,7 +733,6 @@ app.delete('/api/portfolio/ticker/:symbol', (req, res) => {
   const upper = req.params.symbol.toUpperCase();
   const config = readConfig();
   config.portfolios.default.tickers = config.portfolios.default.tickers.filter(t => t !== upper);
-  config.portfolios.default.holdings = config.portfolios.default.holdings.filter(h => h.symbol !== upper);
   writeConfig(config);
   res.json(config);
 });

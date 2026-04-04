@@ -31,9 +31,7 @@ export class PortfolioService {
   loaded = signal(false);
 
   symbols = computed(() => {
-    const fromEntries = this.entries().map(e => e.symbol);
-    const fromTickers = this.tickers();
-    return [...new Set([...fromTickers, ...fromEntries])];
+    return this.tickers();
   });
 
   pensionSymbols = computed(() => {
@@ -74,7 +72,6 @@ export class PortfolioService {
   removeTicker(symbol: string): void {
     const upper = symbol.toUpperCase();
     this.tickers.set(this.tickers().filter(t => t !== upper));
-    this.entries.set(this.entries().filter(e => e.symbol !== upper));
     this.http.delete<PortfolioConfig>(`/api/portfolio/ticker/${upper}`).subscribe();
   }
 

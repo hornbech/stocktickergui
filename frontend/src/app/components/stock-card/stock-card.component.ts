@@ -152,47 +152,49 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
         }
       </div>
 
-      <div class="holdings-section">
-        <div class="holdings-header" (click)="toggleHoldings($event)">
-          <span>Holdings (GAK)</span>
-          <svg [class.expanded]="showHoldings" viewBox="0 0 16 16" width="12" height="12">
-            <path fill="currentColor" d="m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
-          </svg>
-        </div>
-        @if (showHoldings) {
-          <div class="holdings-form fade-in">
-            <div class="form-row">
-              <label>Shares</label>
-              <input type="number" [ngModel]="holdingShares" (ngModelChange)="holdingShares = $event" (blur)="saveHolding()" min="0" step="1" placeholder="0">
-            </div>
-            <div class="form-row">
-              <label>Avg Price (GAK)</label>
-              <input type="number" [ngModel]="holdingAvgPrice" (ngModelChange)="holdingAvgPrice = $event" (blur)="saveHolding()" min="0" step="0.01" placeholder="0.00">
-            </div>
-            @if (holdingShares > 0) {
-              <div class="pnl-display">
-                <div class="pnl-row">
-                  <span>Current Value</span>
-                  <span>{{ currencyService.formatNative(holdingShares * quote.regularMarketPrice, quote.currency) }}</span>
-                </div>
-                @if (holdingAvgPrice > 0) {
-                  <div class="pnl-row">
-                    <span>Cost Basis (GAV)</span>
-                    <span>{{ currencyService.formatNative(holdingShares * holdingAvgPrice, quote.currency) }}</span>
-                  </div>
-                  <div class="pnl-row pnl-total" [class.positive]="unrealizedPnL >= 0" [class.negative]="unrealizedPnL < 0">
-                    <span>Unrealized P&L</span>
-                    <span>
-                      {{ unrealizedPnL >= 0 ? '+' : '' }}{{ currencyService.formatNative(Math.abs(unrealizedPnL), quote.currency) }}
-                      ({{ unrealizedPnLPercent >= 0 ? '+' : '' }}{{ unrealizedPnLPercent.toFixed(2) }}%)
-                    </span>
-                  </div>
-                }
-              </div>
-            }
+      @if (showHoldingsSection) {
+        <div class="holdings-section">
+          <div class="holdings-header" (click)="toggleHoldings($event)">
+            <span>Holdings (GAK)</span>
+            <svg [class.expanded]="showHoldings" viewBox="0 0 16 16" width="12" height="12">
+              <path fill="currentColor" d="m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
+            </svg>
           </div>
-        }
-      </div>
+          @if (showHoldings) {
+            <div class="holdings-form fade-in">
+              <div class="form-row">
+                <label>Shares</label>
+                <input type="number" [ngModel]="holdingShares" (ngModelChange)="holdingShares = $event" (blur)="saveHolding()" min="0" step="1" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label>Avg Price (GAK)</label>
+                <input type="number" [ngModel]="holdingAvgPrice" (ngModelChange)="holdingAvgPrice = $event" (blur)="saveHolding()" min="0" step="0.01" placeholder="0.00">
+              </div>
+              @if (holdingShares > 0) {
+                <div class="pnl-display">
+                  <div class="pnl-row">
+                    <span>Current Value</span>
+                    <span>{{ currencyService.formatNative(holdingShares * quote.regularMarketPrice, quote.currency) }}</span>
+                  </div>
+                  @if (holdingAvgPrice > 0) {
+                    <div class="pnl-row">
+                      <span>Cost Basis (GAV)</span>
+                      <span>{{ currencyService.formatNative(holdingShares * holdingAvgPrice, quote.currency) }}</span>
+                    </div>
+                    <div class="pnl-row pnl-total" [class.positive]="unrealizedPnL >= 0" [class.negative]="unrealizedPnL < 0">
+                      <span>Unrealized P&L</span>
+                      <span>
+                        {{ unrealizedPnL >= 0 ? '+' : '' }}{{ currencyService.formatNative(Math.abs(unrealizedPnL), quote.currency) }}
+                        ({{ unrealizedPnLPercent >= 0 ? '+' : '' }}{{ unrealizedPnLPercent.toFixed(2) }}%)
+                      </span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
     </div>
   `,
   styles: [`
@@ -472,6 +474,7 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
 export class StockCardComponent {
   @Input() quote!: StockQuote;
   @Input() selected = false;
+  @Input() showHoldingsSection = true;
   @Output() cardClicked = new EventEmitter<string>();
   @Output() removed = new EventEmitter<string>();
 

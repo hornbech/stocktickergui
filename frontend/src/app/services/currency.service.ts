@@ -69,6 +69,19 @@ export class CurrencyService {
   }
 
   /**
+   * Format an amount that is already in the display currency (no conversion).
+   * Use this for pre-converted totals like portfolio summaries.
+   */
+  formatDisplay(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: this.displayCurrency(),
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  }
+
+  /**
    * Convert an amount from sourceCurrency to the display currency (numeric).
    */
   convertToDisplay(amount: number, sourceCurrency: string): number {

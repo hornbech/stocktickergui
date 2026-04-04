@@ -143,10 +143,10 @@ interface PensionItem {
             <span>Total</span>
             <span></span>
             <span></span>
-            <span>{{ currencyService.formatConverted(totalPensionValue(), 'USD') }}</span>
+            <span>{{ currencyService.formatDisplay(totalPensionValue()) }}</span>
             <span [class.positive]="totalPensionPnL() >= 0" [class.negative]="totalPensionPnL() < 0">
               @if (totalPensionPnL() !== 0) {
-                {{ totalPensionPnL() >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(totalPensionPnL()), 'USD') }}
+                {{ totalPensionPnL() >= 0 ? '+' : '' }}{{ currencyService.formatDisplay(Math.abs(totalPensionPnL())) }}
               }
             </span>
             <span></span>

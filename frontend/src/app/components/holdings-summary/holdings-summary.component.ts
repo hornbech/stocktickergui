@@ -142,10 +142,10 @@ interface HoldingItem {
             <span>Total</span>
             <span></span>
             <span></span>
-            <span>{{ currencyService.formatConverted(totalHoldingValue(), 'USD') }}</span>
+            <span>{{ currencyService.formatDisplay(totalHoldingValue()) }}</span>
             <span [class.positive]="totalHoldingPnL() >= 0" [class.negative]="totalHoldingPnL() < 0">
               @if (totalHoldingPnL() !== 0) {
-                {{ totalHoldingPnL() >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(totalHoldingPnL()), 'USD') }}
+                {{ totalHoldingPnL() >= 0 ? '+' : '' }}{{ currencyService.formatDisplay(Math.abs(totalHoldingPnL())) }}
               }
             </span>
             <span></span>

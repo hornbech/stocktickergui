@@ -45,33 +45,24 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
     </header>
 
     <main class="main-content">
-      <div class="toolbar">
-        @if (activeView() === 'watchlist') {
-          <app-ticker-input (tickerAdded)="onTickerAdded($event)"></app-ticker-input>
-        }
-        @if (activeView() === 'watchlist' && quotes().size > 0) {
-          <span class="ticker-count">{{ quotes().size }} watching</span>
-        }
-      </div>
-
       <div class="view-toggle">
-        <button 
-          [class.active]="activeView() === 'overview'" 
+        <button
+          [class.active]="activeView() === 'overview'"
           (click)="setActiveView('overview')">
           Overview
         </button>
-        <button 
-          [class.active]="activeView() === 'watchlist'" 
+        <button
+          [class.active]="activeView() === 'watchlist'"
           (click)="setActiveView('watchlist')">
           Watchlist
         </button>
-        <button 
-          [class.active]="activeView() === 'holdings'" 
+        <button
+          [class.active]="activeView() === 'holdings'"
           (click)="setActiveView('holdings')">
           Holdings
         </button>
-        <button 
-          [class.active]="activeView() === 'pension'" 
+        <button
+          [class.active]="activeView() === 'pension'"
           (click)="setActiveView('pension')">
           Pension
         </button>
@@ -88,11 +79,11 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
               <h3>Holdings</h3>
             </div>
             <div class="overview-value">
-              {{ currencyService.formatConverted(totalHoldingsValue(), 'USD') }}
+              {{ currencyService.formatDisplay(totalHoldingsValue()) }}
             </div>
             <div class="overview-pnl" [class.positive]="totalHoldingsPnL() >= 0" [class.negative]="totalHoldingsPnL() < 0">
               @if (totalHoldingsPnL() !== 0) {
-                {{ totalHoldingsPnL() >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(totalHoldingsPnL()), 'USD') }}
+                {{ totalHoldingsPnL() >= 0 ? '+' : '' }}{{ currencyService.formatDisplay(Math.abs(totalHoldingsPnL())) }}
                 ({{ totalHoldingsPnLPct() >= 0 ? '+' : '' }}{{ totalHoldingsPnLPct().toFixed(2) }}%)
               } @else {
                 No P&L data
@@ -108,11 +99,11 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
               <h3>Pension</h3>
             </div>
             <div class="overview-value">
-              {{ currencyService.formatConverted(totalPensionValue(), 'USD') }}
+              {{ currencyService.formatDisplay(totalPensionValue()) }}
             </div>
             <div class="overview-pnl" [class.positive]="totalPensionPnL() >= 0" [class.negative]="totalPensionPnL() < 0">
               @if (totalPensionPnL() !== 0) {
-                {{ totalPensionPnL() >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(totalPensionPnL()), 'USD') }}
+                {{ totalPensionPnL() >= 0 ? '+' : '' }}{{ currencyService.formatDisplay(Math.abs(totalPensionPnL())) }}
                 ({{ totalPensionPnLPct() >= 0 ? '+' : '' }}{{ totalPensionPnLPct().toFixed(2) }}%)
               } @else {
                 No P&L data
@@ -128,11 +119,11 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
               <h3>Total</h3>
             </div>
             <div class="overview-value total">
-              {{ currencyService.formatConverted(totalHoldingsValue() + totalPensionValue(), 'USD') }}
+              {{ currencyService.formatDisplay(totalHoldingsValue() + totalPensionValue()) }}
             </div>
             <div class="overview-pnl" [class.positive]="(totalHoldingsPnL() + totalPensionPnL()) >= 0" [class.negative]="(totalHoldingsPnL() + totalPensionPnL()) < 0">
               @if ((totalHoldingsPnL() + totalPensionPnL()) !== 0) {
-                {{ (totalHoldingsPnL() + totalPensionPnL()) >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(totalHoldingsPnL() + totalPensionPnL()), 'USD') }}
+                {{ (totalHoldingsPnL() + totalPensionPnL()) >= 0 ? '+' : '' }}{{ currencyService.formatDisplay(Math.abs(totalHoldingsPnL() + totalPensionPnL())) }}
               } @else {
                 —
               }
@@ -140,14 +131,15 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
           </div>
         </div>
 
+        <app-news-ticker [symbols]="allSymbols()"></app-news-ticker>
+
         @if (overviewSymbols().length > 0) {
-          <app-news-ticker [symbols]="allSymbols()"></app-news-ticker>
           <div class="overview-chart">
             <div class="chart-header">
               <h4>Portfolio Performance</h4>
               <div class="chart-symbols">
                 @for (sym of overviewSymbols(); track sym) {
-                  <button 
+                  <button
                     class="chart-symbol-btn"
                     [class.active]="selectedOverviewSymbol() === sym"
                     (click)="selectedOverviewSymbol.set(sym)">
@@ -161,17 +153,17 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
             }
           </div>
         }
-
-        <app-holdings-summary [quotes]="quotes()"></app-holdings-summary>
-        <app-pension-summary [quotes]="quotes()"></app-pension-summary>
-      }
-
-      @if (selectedSymbol() && activeView() === 'watchlist') {
-        <app-stock-chart [symbol]="selectedSymbol()"></app-stock-chart>
       }
 
       @if (activeView() === 'watchlist') {
-        @if (loading() && quotesArray().length === 0) {
+        <div class="watchlist-toolbar">
+          <app-ticker-input (tickerAdded)="onTickerAdded($event)"></app-ticker-input>
+          @if (watchlistQuotes().length > 0) {
+            <span class="ticker-count">{{ watchlistQuotes().length }} watching</span>
+          }
+        </div>
+
+        @if (loading() && watchlistQuotes().length === 0) {
           <div class="loading-grid">
             @for (i of [1,2,3]; track i) {
               <div class="skeleton-card">
@@ -183,21 +175,26 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
           </div>
         }
 
-        @if (quotesArray().length > 0) {
+        @if (watchlistQuotes().length > 0) {
+          <app-news-ticker [symbols]="portfolioService.tickers()"></app-news-ticker>
           <div class="cards-grid">
-            @for (quote of quotesArray(); track quote.symbol) {
+            @for (quote of watchlistQuotes(); track quote.symbol) {
               <app-stock-card
                 [quote]="quote"
                 [selected]="selectedSymbol() === quote.symbol"
+                [showHoldingsSection]="false"
                 (cardClicked)="selectSymbol($event)"
                 (removed)="onTickerRemoved($event)">
               </app-stock-card>
             }
           </div>
-          <app-news-ticker [symbols]="portfolioService.symbols()"></app-news-ticker>
         }
 
-        @if (!loading() && quotesArray().length === 0) {
+        @if (selectedSymbol() && activeView() === 'watchlist') {
+          <app-stock-chart [symbol]="selectedSymbol()"></app-stock-chart>
+        }
+
+        @if (!loading() && watchlistQuotes().length === 0) {
           <div class="empty-state">
             <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -263,7 +260,7 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
       flex-direction: column;
       gap: 24px;
     }
-    .toolbar {
+    .watchlist-toolbar {
       display: flex;
       align-items: center;
       gap: 16px;
@@ -427,7 +424,7 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
       .cards-grid {
         grid-template-columns: 1fr;
       }
-      .toolbar {
+      .watchlist-toolbar {
         flex-direction: column;
         align-items: stretch;
       }
@@ -443,14 +440,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   activeView = signal<'overview' | 'watchlist' | 'holdings' | 'pension'>('overview');
   Math = Math;
 
-  quotesArray = computed(() => {
-    const symbols = this.portfolioService.symbols();
+  watchlistQuotes = computed(() => {
+    const tickers = this.portfolioService.tickers();
     const map = this.quotes();
-    return symbols.map(s => map.get(s)).filter((q): q is StockQuote => !!q);
-  });
-
-  holdingsSymbols = computed(() => {
-    return this.portfolioService.entries().map(e => e.symbol);
+    return tickers.map(s => map.get(s)).filter((q): q is StockQuote => !!q);
   });
 
   overviewSymbols = computed(() => {
@@ -461,7 +454,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   });
 
   allSymbols = computed(() => {
-    const watchlist = this.portfolioService.symbols();
+    const watchlist = this.portfolioService.tickers();
     const holdings = this.portfolioService.entries().map(e => e.symbol);
     const pension = this.portfolioService.pensionEntries().map(e => e.symbol);
     return [...new Set([...watchlist, ...holdings, ...pension])];
@@ -602,7 +595,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     map.delete(symbol);
     this.quotes.set(map);
     if (this.selectedSymbol() === symbol) {
-      const remaining = this.portfolioService.symbols();
+      const remaining = this.portfolioService.tickers();
       this.selectedSymbol.set(remaining.length > 0 ? remaining[0] : '');
     }
   }
@@ -612,9 +605,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private fetchAllQuotes(): void {
-    const watchlistSymbols = this.portfolioService.symbols();
-    const pensionSymbols = this.portfolioService.pensionSymbols();
-    const allSymbols = [...new Set([...watchlistSymbols, ...pensionSymbols])];
+    const watchlist = this.portfolioService.tickers();
+    const holdings = this.portfolioService.entries().map(e => e.symbol);
+    const pension = this.portfolioService.pensionSymbols();
+    const allSymbols = [...new Set([...watchlist, ...holdings, ...pension])];
 
     if (allSymbols.length === 0) {
       this.loading.set(false);

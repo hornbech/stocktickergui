@@ -261,7 +261,7 @@ const swaggerSpec = {
         type: 'object',
         description: 'Full portfolio configuration, persisted to config/portfolio.json',
         properties: {
-          currency: { type: 'string', enum: ['USD', 'DKK'], description: 'Display currency for portfolio summary totals', example: 'USD' },
+          currency: { type: 'string', enum: ['USD', 'DKK', 'EUR', 'GBP', 'SEK', 'NOK', 'CHF', 'CAD', 'AUD'], description: 'Display currency for portfolio summary totals', example: 'USD' },
           tickers: { type: 'array', items: { type: 'string' }, description: 'List of tracked ticker symbols', example: ['AAPL', 'MSFT', 'CNA.L'] },
           holdings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Portfolio positions' }
         }

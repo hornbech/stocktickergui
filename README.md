@@ -111,7 +111,7 @@ A boilerplate is provided at `config/portfolio.example.json`:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `currency` | `"USD"` or `"DKK"` | Display currency for portfolio summary totals |
+| `currency` | `"USD"`, `"DKK"`, `"EUR"`, `"GBP"`, `"SEK"`, `"NOK"`, `"CHF"`, `"CAD"`, or `"AUD"` | Display currency for portfolio summary totals |
 | `tickers` | `string[]` | List of ticker symbols to track (e.g., `"AAPL"`, `"CNA.L"`, `"NOVO-B.CO"`) |
 | `holdings` | `object[]` | Your positions; each has `symbol`, `shares`, and `avgPrice` (GAK) |
 | `holdings[].symbol` | `string` | Ticker symbol, must match a ticker in the `tickers` array |
@@ -201,7 +201,7 @@ frontend/src/app/
     ├── stock-card/               # Per-ticker card: price, change, stats, holdings form
     ├── stock-chart/              # TradingView Lightweight Charts wrapper (candlestick + volume)
     ├── portfolio-summary/        # Aggregated portfolio table with converted totals
-    ├── currency-toggle/          # USD/DKK toggle button with rate display
+    ├── currency-toggle/          # Currency dropdown (USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, AUD)
     └── market-status/            # Market state indicator badge (Pre-Market, Open, etc.)
 ```
 

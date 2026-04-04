@@ -1,21 +1,18 @@
 import { Component } from '@angular/core';
-import { CurrencyService } from '../../services/currency.service';
+import { FormsModule } from '@angular/forms';
+import { CurrencyService, SUPPORTED_DISPLAY_CURRENCIES, DisplayCurrency } from '../../services/currency.service';
 
 @Component({
   selector: 'app-currency-toggle',
   standalone: true,
+  imports: [FormsModule],
   template: `
     <div class="currency-toggle">
-      <button
-        [class.active]="currencyService.displayCurrency() === 'USD'"
-        (click)="currencyService.setCurrency('USD')">
-        USD
-      </button>
-      <button
-        [class.active]="currencyService.displayCurrency() === 'DKK'"
-        (click)="currencyService.setCurrency('DKK')">
-        DKK
-      </button>
+      <select [ngModel]="currencyService.displayCurrency()" (ngModelChange)="currencyService.setCurrency($event)">
+        @for (c of currencies; track c.code) {
+          <option [value]="c.code">{{ c.code }} - {{ c.name }}</option>
+        }
+      </select>
       <span class="rate">1 USD = {{ (currencyService.rates()['DKK'] || 6.85).toFixed(2) }} DKK</span>
     </div>
   `,
@@ -23,41 +20,34 @@ import { CurrencyService } from '../../services/currency.service';
     .currency-toggle {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 12px;
     }
-    button {
-      padding: 6px 16px;
+    select {
+      padding: 6px 12px;
       border: 1px solid var(--border);
+      border-radius: var(--radius);
       background: var(--bg-secondary);
-      color: var(--text-secondary);
+      color: var(--text-primary);
       font-family: inherit;
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       transition: all var(--transition);
     }
-    button:first-child {
-      border-radius: var(--radius) 0 0 var(--radius);
-    }
-    button:nth-child(2) {
-      border-radius: 0 var(--radius) var(--radius) 0;
-      border-left: none;
-    }
-    button.active {
-      background: var(--blue);
+    select:hover {
       border-color: var(--blue);
-      color: #fff;
     }
-    button:hover:not(.active) {
-      background: var(--bg-card-hover);
+    select:focus {
+      outline: none;
+      border-color: var(--blue);
     }
     .rate {
-      margin-left: 12px;
       font-size: 12px;
       color: var(--text-muted);
     }
   `]
 })
 export class CurrencyToggleComponent {
+  currencies = SUPPORTED_DISPLAY_CURRENCIES;
   constructor(public currencyService: CurrencyService) {}
 }

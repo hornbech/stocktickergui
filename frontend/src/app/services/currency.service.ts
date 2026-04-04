@@ -1,7 +1,19 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-export type DisplayCurrency = 'USD' | 'DKK';
+export type DisplayCurrency = 'USD' | 'DKK' | 'EUR' | 'GBP' | 'SEK' | 'NOK' | 'CHF' | 'CAD' | 'AUD';
+
+export const SUPPORTED_DISPLAY_CURRENCIES: { code: DisplayCurrency; name: string }[] = [
+  { code: 'USD', name: 'US Dollar' },
+  { code: 'DKK', name: 'Danish Krone' },
+  { code: 'EUR', name: 'Euro' },
+  { code: 'GBP', name: 'British Pound' },
+  { code: 'SEK', name: 'Swedish Krona' },
+  { code: 'NOK', name: 'Norwegian Krone' },
+  { code: 'CHF', name: 'Swiss Franc' },
+  { code: 'CAD', name: 'Canadian Dollar' },
+  { code: 'AUD', name: 'Australian Dollar' }
+];
 
 @Injectable({ providedIn: 'root' })
 export class CurrencyService {
@@ -14,8 +26,9 @@ export class CurrencyService {
   }
 
   initCurrency(c: string): void {
-    if (c === 'DKK' || c === 'USD') {
-      this.displayCurrency.set(c);
+    const supported = SUPPORTED_DISPLAY_CURRENCIES.map(x => x.code);
+    if (supported.includes(c as DisplayCurrency)) {
+      this.displayCurrency.set(c as DisplayCurrency);
     }
   }
 

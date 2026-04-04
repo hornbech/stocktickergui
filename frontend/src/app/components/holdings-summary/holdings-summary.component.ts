@@ -90,6 +90,7 @@ interface HoldingItem {
               <app-stock-card
                 [quote]="item.quote"
                 [selected]="selectedSymbol() === item.entry.symbol"
+                [showHoldingsSection]="false"
                 (cardClicked)="onSymbolSelected($event)"
                 (removed)="removeHolding($event)">
               </app-stock-card>

@@ -91,6 +91,7 @@ interface PensionItem {
               <app-stock-card
                 [quote]="item.quote"
                 [selected]="selectedSymbol() === item.entry.symbol"
+                [showHoldingsSection]="false"
                 (cardClicked)="onSymbolSelected($event)"
                 (removed)="removePension($event)">
               </app-stock-card>

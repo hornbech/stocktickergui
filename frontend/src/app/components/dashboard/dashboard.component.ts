@@ -9,6 +9,7 @@ import { TickerInputComponent } from '../ticker-input/ticker-input.component';
 import { StockCardComponent } from '../stock-card/stock-card.component';
 import { StockChartComponent } from '../stock-chart/stock-chart.component';
 import { PortfolioSummaryComponent } from '../portfolio-summary/portfolio-summary.component';
+import { HoldingsSummaryComponent } from '../holdings-summary/holdings-summary.component';
 import { PensionSummaryComponent } from '../pension-summary/pension-summary.component';
 import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.component';
 
@@ -21,6 +22,7 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
     StockCardComponent,
     StockChartComponent,
     PortfolioSummaryComponent,
+    HoldingsSummaryComponent,
     PensionSummaryComponent,
     CurrencyToggleComponent
   ],
@@ -78,14 +80,19 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
         </button>
       </div>
 
-      @if (selectedSymbol() && activeView() !== 'pension') {
+      @if (selectedSymbol() && activeView() === 'watchlist') {
         <app-stock-chart [symbol]="selectedSymbol()"></app-stock-chart>
       }
 
-      @if (activeView() === 'pension') {
-        <app-pension-summary [quotes]="quotes()"></app-pension-summary>
-      } @else {
-        @if (loading() && currentViewQuotes().length === 0) {
+      @if (activeView() === 'watchlist') {
+        @if (portfolioService.entries().length > 0) {
+          <app-portfolio-summary
+            [entries]="portfolioService.entries()"
+            [quotes]="quotes()">
+          </app-portfolio-summary>
+        }
+
+        @if (loading() && quotesArray().length === 0) {
           <div class="loading-grid">
             @for (i of [1,2,3]; track i) {
               <div class="skeleton-card">
@@ -97,9 +104,9 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
           </div>
         }
 
-        @if (currentViewQuotes().length > 0) {
+        @if (quotesArray().length > 0) {
           <div class="cards-grid">
-            @for (quote of currentViewQuotes(); track quote.symbol) {
+            @for (quote of quotesArray(); track quote.symbol) {
               <app-stock-card
                 [quote]="quote"
                 [selected]="selectedSymbol() === quote.symbol"
@@ -110,15 +117,23 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
           </div>
         }
 
-        @if (!loading() && currentViewQuotes().length === 0) {
+        @if (!loading() && quotesArray().length === 0) {
           <div class="empty-state">
             <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
-            <h2>No {{ activeView() === 'holdings' ? 'holdings' : 'tickers' }} added</h2>
-            <p>{{ activeView() === 'holdings' ? 'Add holdings from your watchlist cards below' : 'Search for a stock ticker above to get started' }}</p>
+            <h2>No tickers added</h2>
+            <p>Search for a stock ticker above to get started</p>
           </div>
         }
+      }
+
+      @if (activeView() === 'holdings') {
+        <app-holdings-summary [quotes]="quotes()"></app-holdings-summary>
+      }
+
+      @if (activeView() === 'pension') {
+        <app-pension-summary [quotes]="quotes()"></app-pension-summary>
       }
     </main>
   `,

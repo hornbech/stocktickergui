@@ -9,6 +9,7 @@ import { TickerInputComponent } from '../ticker-input/ticker-input.component';
 import { StockCardComponent } from '../stock-card/stock-card.component';
 import { StockChartComponent } from '../stock-chart/stock-chart.component';
 import { PortfolioSummaryComponent } from '../portfolio-summary/portfolio-summary.component';
+import { PensionSummaryComponent } from '../pension-summary/pension-summary.component';
 import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.component';
 
 @Component({
@@ -20,6 +21,7 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
     StockCardComponent,
     StockChartComponent,
     PortfolioSummaryComponent,
+    PensionSummaryComponent,
     CurrencyToggleComponent
   ],
   template: `
@@ -55,43 +57,62 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
         </app-portfolio-summary>
       }
 
+      @if (portfolioService.pensionEntries().length > 0 || showPensionTab()) {
+        <app-pension-summary [quotes]="quotes()"></app-pension-summary>
+      }
+
+      <div class="view-toggle">
+        <button 
+          [class.active]="!showPensionTab()" 
+          (click)="showPensionTab.set(false)">
+          Watchlist
+        </button>
+        <button 
+          [class.active]="showPensionTab()" 
+          (click)="showPensionTab.set(true)">
+          Pension
+        </button>
+      </div>
+
       @if (selectedSymbol()) {
         <app-stock-chart [symbol]="selectedSymbol()"></app-stock-chart>
       }
 
-      @if (loading() && quotes().size === 0) {
-        <div class="loading-grid">
-          @for (i of [1,2,3]; track i) {
-            <div class="skeleton-card">
-              <div class="skeleton" style="width: 60%; height: 20px; margin-bottom: 12px;"></div>
-              <div class="skeleton" style="width: 40%; height: 32px; margin-bottom: 16px;"></div>
-              <div class="skeleton" style="width: 100%; height: 80px;"></div>
-            </div>
-          }
-        </div>
-      }
+      @if (!showPensionTab()) {
+        @if (loading() && quotes().size === 0) {
+          <div class="loading-grid">
+            @for (i of [1,2,3]; track i) {
+              <div class="skeleton-card">
+                <div class="skeleton" style="width: 60%; height: 20px; margin-bottom: 12px;"></div>
+                <div class="skeleton" style="width: 40%; height: 32px; margin-bottom: 16px;"></div>
+                <div class="skeleton" style="width: 100%; height: 80px;"></div>
+              </div>
+            }
+          </div>
+        }
 
-      @if (quotes().size > 0) {
-        <div class="cards-grid">
-          @for (quote of quotesArray(); track quote.symbol) {
-            <app-stock-card
-              [quote]="quote"
-              [selected]="selectedSymbol() === quote.symbol"
-              (cardClicked)="selectSymbol($event)"
-              (removed)="onTickerRemoved($event)">
-            </app-stock-card>
-          }
-        </div>
-      }
+        @if (quotes().size > 0) {
+          <div class="cards-grid">
+            @for (quote of quotesArray(); track quote.symbol) {
+              <app-stock-card
+                [quote]="quote"
+                [selected]="selectedSymbol() === quote.symbol"
+                (cardClicked)="selectSymbol($event)"
+                (removed)="onTickerRemoved($event)">
+              </app-stock-card>
+            }
+          </div>
+        }
 
-      @if (!loading() && quotes().size === 0) {
-        <div class="empty-state">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-          </svg>
-          <h2>No tickers added</h2>
-          <p>Search for a stock ticker above to get started</p>
-        </div>
+        @if (!loading() && quotes().size === 0) {
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <h2>No tickers added</h2>
+            <p>Search for a stock ticker above to get started</p>
+          </div>
+        }
       }
     </main>
   `,
@@ -151,6 +172,34 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
       color: var(--text-muted);
       white-space: nowrap;
     }
+    .view-toggle {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      width: fit-content;
+    }
+    .view-toggle button {
+      padding: 8px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius);
+      transition: all var(--transition);
+    }
+    .view-toggle button:hover {
+      color: var(--text-primary);
+    }
+    .view-toggle button.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: var(--shadow);
+    }
     .cards-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -209,6 +258,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedSymbol = signal<string>('');
   loading = signal(false);
   lastUpdated = signal<string>('');
+  showPensionTab = signal(false);
 
   quotesArray = computed(() => {
     const symbols = this.portfolioService.symbols();

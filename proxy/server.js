@@ -203,6 +203,59 @@ const swaggerSpec = {
           '400': { description: 'Missing symbol' }
         }
       }
+    },
+    '/portfolio/pension': {
+      get: {
+        tags: ['Portfolio'],
+        summary: 'Get pension portfolio',
+        description: 'Returns pension portfolio holdings separate from regular holdings.',
+        responses: {
+          '200': { description: 'Pension portfolio config', content: { 'application/json': { schema: { $ref: '#/components/schemas/PensionPortfolio' } } } }
+        }
+      }
+    },
+    '/portfolio/pension/holding': {
+      put: {
+        tags: ['Portfolio'],
+        summary: 'Update pension holding',
+        description: 'Add or update a pension portfolio holding. Set both `shares` and `avgPrice` to `0` to remove.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['symbol', 'shares', 'avgPrice'],
+                properties: {
+                  symbol: { type: 'string', example: 'FXAIX' },
+                  shares: { type: 'number', example: 100 },
+                  avgPrice: { type: 'number', description: 'Average purchase price per share', example: 180.50 }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          '200': { description: 'Updated pension portfolio', content: { 'application/json': { schema: { $ref: '#/components/schemas/PensionPortfolio' } } } }
+        }
+      }
+    },
+    '/portfolio/pension/ticker/{symbol}': {
+      delete: {
+        tags: ['Portfolio'],
+        summary: 'Remove pension ticker',
+        description: 'Remove a ticker from the pension portfolio.',
+        parameters: [{
+          name: 'symbol',
+          in: 'path',
+          required: true,
+          description: 'Ticker symbol to remove',
+          schema: { type: 'string', example: 'FXAIX' }
+        }],
+        responses: {
+          '200': { description: 'Updated pension portfolio' }
+        }
+      }
     }
   },
   components: {
@@ -232,7 +285,18 @@ const swaggerSpec = {
           preMarketChangePercent: { type: 'number', nullable: true, example: 0.18 },
           postMarketPrice: { type: 'number', nullable: true, example: 255.35 },
           postMarketChange: { type: 'number', nullable: true, example: -0.57 },
-          postMarketChangePercent: { type: 'number', nullable: true, example: -0.22 }
+          postMarketChangePercent: { type: 'number', nullable: true, example: -0.22 },
+          beta: { type: 'number', nullable: true, example: 1.28, description: 'Beta measures volatility relative to the market' },
+          dividendYield: { type: 'number', nullable: true, example: 0.55, description: 'Annual dividend yield as percentage' },
+          epsTrailingTwelveMonths: { type: 'number', nullable: true, example: 6.57, description: 'Trailing 12-month EPS' },
+          epsForward: { type: 'number', nullable: true, example: 7.28, description: 'Forward EPS estimate' },
+          fiftyDayAverage: { type: 'number', nullable: true, example: 252.30, description: '50-day moving average price' },
+          twoHundredDayAverage: { type: 'number', nullable: true, example: 235.80, description: '200-day moving average price' },
+          fiftyDayAverageChangePercent: { type: 'number', nullable: true, example: 1.44, description: 'Price change vs 50-day MA (%)' },
+          twoHundredDayAverageChangePercent: { type: 'number', nullable: true, example: 8.54, description: 'Price change vs 200-day MA (%)' },
+          analystTargetPrice: { type: 'number', nullable: true, example: 280.00, description: 'Mean analyst price target' },
+          recommendationKey: { type: 'string', nullable: true, example: 'buy', description: 'Analyst recommendation: strongBuy, buy, hold, sell, strongSell' },
+          numberOfAnalystRatings: { type: 'integer', nullable: true, example: 42, description: 'Number of analysts covering the stock' }
         }
       },
       SearchResult: {
@@ -263,7 +327,8 @@ const swaggerSpec = {
         properties: {
           currency: { type: 'string', enum: ['USD', 'DKK', 'EUR', 'GBP', 'SEK', 'NOK', 'CHF', 'CAD', 'AUD'], description: 'Display currency for portfolio summary totals', example: 'USD' },
           tickers: { type: 'array', items: { type: 'string' }, description: 'List of tracked ticker symbols', example: ['AAPL', 'MSFT', 'CNA.L'] },
-          holdings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Portfolio positions' }
+          holdings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Portfolio positions' },
+          pensionHoldings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Pension/retirement portfolio positions' }
         }
       },
       Holding: {
@@ -273,6 +338,13 @@ const swaggerSpec = {
           symbol: { type: 'string', example: 'AAPL' },
           shares: { type: 'number', description: 'Number of shares held', example: 10 },
           avgPrice: { type: 'number', description: 'Average purchase price per share (GAK) in the stock\'s native currency. Set to 0 if unknown.', example: 150.00 }
+        }
+      },
+      PensionPortfolio: {
+        type: 'object',
+        description: 'Pension portfolio configuration',
+        properties: {
+          holdings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Pension portfolio positions' }
         }
       }
     }
@@ -442,11 +514,14 @@ function readConfig() {
   } catch (err) {
     console.error('Failed to read config:', err.message);
   }
-  return { currency: 'USD', tickers: [], holdings: [] };
+  return { currency: 'USD', tickers: [], holdings: [], pensionHoldings: [] };
 }
 
 function writeConfig(config) {
   try {
+    if (!config.pensionHoldings) {
+      config.pensionHoldings = [];
+    }
     writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
   } catch (err) {
     console.error('Failed to write config:', err.message);
@@ -518,6 +593,54 @@ app.put('/api/portfolio/holding', (req, res) => {
   res.json(config);
 });
 
+// --- Pension Portfolio ---
+
+function readPensionHoldings() {
+  const config = readConfig();
+  return config.pensionHoldings || [];
+}
+
+function writePensionHoldings(holdings) {
+  const config = readConfig();
+  config.pensionHoldings = holdings;
+  writeConfig(config);
+}
+
+// Get pension portfolio
+app.get('/api/portfolio/pension', (_req, res) => {
+  res.json({ holdings: readPensionHoldings() });
+});
+
+// Update pension holding
+app.put('/api/portfolio/pension/holding', (req, res) => {
+  const { symbol, shares, avgPrice } = req.body;
+  if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
+
+  const holdings = readPensionHoldings();
+  const upper = symbol.toUpperCase();
+  const idx = holdings.findIndex(h => h.symbol === upper);
+
+  if (shares === 0 && avgPrice === 0) {
+    const filtered = holdings.filter(h => h.symbol !== upper);
+    writePensionHoldings(filtered);
+  } else if (idx >= 0) {
+    holdings[idx] = { symbol: upper, shares, avgPrice };
+    writePensionHoldings(holdings);
+  } else {
+    holdings.push({ symbol: upper, shares, avgPrice });
+    writePensionHoldings(holdings);
+  }
+  res.json({ holdings: readPensionHoldings() });
+});
+
+// Remove pension ticker
+app.delete('/api/portfolio/pension/ticker/:symbol', (req, res) => {
+  const upper = req.params.symbol.toUpperCase();
+  const holdings = readPensionHoldings().filter(h => h.symbol !== upper);
+  writePensionHoldings(holdings);
+  res.json({ holdings });
+});
+
 // --- Helpers ---
 
 function mapQuote(q) {
@@ -543,7 +666,18 @@ function mapQuote(q) {
     preMarketChangePercent: q.preMarketChangePercent,
     postMarketPrice: q.postMarketPrice,
     postMarketChange: q.postMarketChange,
-    postMarketChangePercent: q.postMarketChangePercent
+    postMarketChangePercent: q.postMarketChangePercent,
+    beta: q.beta,
+    dividendYield: q.dividendYield != null ? round(q.dividendYield) : null,
+    epsTrailingTwelveMonths: q.epsTrailingTwelveMonths,
+    epsForward: q.epsForward,
+    fiftyDayAverage: q.fiftyDayAverage,
+    twoHundredDayAverage: q.twoHundredDayAverage,
+    fiftyDayAverageChangePercent: q.fiftyDayAverageChangePercent,
+    twoHundredDayAverageChangePercent: q.twoHundredDayAverageChangePercent,
+    analystTargetPrice: q.analystTargetPrice,
+    recommendationKey: q.recommendationKey,
+    numberOfAnalystRatings: q.numberOfAnalystRatings
   };
 }
 

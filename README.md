@@ -9,7 +9,6 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 ## Table of Contents
 
 - [Features](#features)
-- [Roadmap](#roadmap)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
   - [Portfolio Config File](#portfolio-config-file)
@@ -43,33 +42,13 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 - **GAK/GAV portfolio tracking** -- enter your average purchase price (GAK) and number of shares to see unrealized P&L; works without GAK too, showing just the current value
 - **Multi-currency display** -- each stock shows prices in its native currency (USD, GBP, EUR, DKK, etc.) with a currency badge on the card
 - **Currency dropdown** for portfolio totals -- choose from USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, or AUD; the summary table converts all holdings to your chosen display currency using live exchange rates
+- **Technical indicators** on each stock card -- Beta, Dividend Yield, EPS (TTM & Forward), MA50, MA200, Analyst Target Price, Analyst Rating
+- **Pension portfolio tab** -- separate tracking for pension and retirement accounts with dedicated holdings
 - **Sub-unit currency support** -- GBp (pence) is automatically converted to GBP for display; same for ILA (agorot) to ILS
 - **File-based persistence** -- portfolio config is stored in `config/portfolio.json`, mounted as a Docker volume so data survives container restarts
 - **Dark theme** with responsive layout that works on desktop and tablet
 - **No API keys required** -- uses Yahoo Finance and Frankfurter API, both free and keyless
 - **Swagger UI** at [`/api/docs/`](http://localhost:8080/api/docs/) for interactive API documentation and testing
-
----
-
-## Roadmap
-
-Planned features and enhancements:
-
-### Technical Indicators on Ticker Cards
-Additional financial indicators to be displayed on each stock card:
-- **VWAP** (Volume Weighted Average Price) - key intraday indicator
-- **RSI** (Relative Strength Index) - momentum oscillator
-- **Moving Averages** - MA50, MA200 for trend analysis
-- **Beta** - volatility relative to the market
-- **Dividend Yield** - annual dividend as percentage of price
-- **EPS** (Earnings Per Share) - profitability metric
-
-### Pension Portfolio Tab
-A dedicated tab/section for pension and retirement accounts:
-- Separate tracking from regular portfolio
-- Support for pension fund tickers (e.g., mutual funds, target-date funds)
-- Different tax treatment display (optional)
-- Long-term performance metrics vs regular holdings
 
 ---
 
@@ -224,6 +203,7 @@ frontend/src/app/
     ├── stock-card/               # Per-ticker card: price, change, stats, holdings form
     ├── stock-chart/              # TradingView Lightweight Charts wrapper (candlestick + volume)
     ├── portfolio-summary/        # Aggregated portfolio table with converted totals
+    ├── pension-summary/          # Pension/retirement portfolio tracking
     ├── currency-toggle/          # Currency dropdown (USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, AUD)
     └── market-status/            # Market state indicator badge (Pre-Market, Open, etc.)
 ```

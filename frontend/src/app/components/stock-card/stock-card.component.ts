@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StockQuote } from '../../models/stock.model';
 import { PortfolioEntry } from '../../models/portfolio.model';
@@ -10,7 +10,7 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
 @Component({
   selector: 'app-stock-card',
   standalone: true,
-  imports: [CommonModule, FormsModule, MarketStatusComponent],
+  imports: [CommonModule, FormsModule, MarketStatusComponent, TitleCasePipe],
   template: `
     <div class="card" [class.selected]="selected" (click)="cardClicked.emit(quote.symbol)">
       <div class="card-header">
@@ -82,9 +82,74 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
           <span class="stat-value">{{ formatMarketCap(quote.marketCap) }}</span>
         </div>
         <div class="stat">
-          <span class="stat-label">P/E</span>
+          <span class="stat-label">P/E (TTM)</span>
           <span class="stat-value">{{ quote.trailingPE ? quote.trailingPE.toFixed(2) : 'N/A' }}</span>
         </div>
+      </div>
+
+      <div class="indicators-section">
+        <div class="indicators-header" (click)="toggleIndicators($event)">
+          <span>Indicators</span>
+          <svg [class.expanded]="showIndicators" viewBox="0 0 16 16" width="12" height="12">
+            <path fill="currentColor" d="m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
+          </svg>
+        </div>
+        @if (showIndicators) {
+          <div class="indicators-grid fade-in">
+            <div class="indicator">
+              <span class="ind-label">Beta</span>
+              <span class="ind-value" [class.positive]="(quote.beta ?? 1) > 1" [class.negative]="(quote.beta ?? 1) < 1">
+                {{ quote.beta ? quote.beta.toFixed(2) : 'N/A' }}
+              </span>
+            </div>
+            <div class="indicator">
+              <span class="ind-label">Div Yield</span>
+              <span class="ind-value">{{ quote.dividendYield ? quote.dividendYield.toFixed(2) + '%' : 'N/A' }}</span>
+            </div>
+            <div class="indicator">
+              <span class="ind-label">EPS (TTM)</span>
+              <span class="ind-value">{{ quote.epsTrailingTwelveMonths ? currencyService.formatNative(quote.epsTrailingTwelveMonths, quote.currency) : 'N/A' }}</span>
+            </div>
+            <div class="indicator">
+              <span class="ind-label">EPS Fwd</span>
+              <span class="ind-value">{{ quote.epsForward ? currencyService.formatNative(quote.epsForward, quote.currency) : 'N/A' }}</span>
+            </div>
+            <div class="indicator">
+              <span class="ind-label">MA50</span>
+              <span class="ind-value" [class.positive]="priceVsMA(quote.fiftyDayAverage) >= 0" [class.negative]="priceVsMA(quote.fiftyDayAverage) < 0">
+                {{ quote.fiftyDayAverage ? currencyService.formatNative(quote.fiftyDayAverage, quote.currency) : 'N/A' }}
+                @if (quote.fiftyDayAverageChangePercent !== null) {
+                  <span class="ma-pct">({{ quote.fiftyDayAverageChangePercent >= 0 ? '+' : '' }}{{ quote.fiftyDayAverageChangePercent?.toFixed(1) }}%)</span>
+                }
+              </span>
+            </div>
+            <div class="indicator">
+              <span class="ind-label">MA200</span>
+              <span class="ind-value" [class.positive]="priceVsMA(quote.twoHundredDayAverage) >= 0" [class.negative]="priceVsMA(quote.twoHundredDayAverage) < 0">
+                {{ quote.twoHundredDayAverage ? currencyService.formatNative(quote.twoHundredDayAverage, quote.currency) : 'N/A' }}
+                @if (quote.twoHundredDayAverageChangePercent !== null) {
+                  <span class="ma-pct">({{ quote.twoHundredDayAverageChangePercent >= 0 ? '+' : '' }}{{ quote.twoHundredDayAverageChangePercent?.toFixed(1) }}%)</span>
+                }
+              </span>
+            </div>
+            @if (quote.analystTargetPrice) {
+              <div class="indicator">
+                <span class="ind-label">Target</span>
+                <span class="ind-value" [class.positive]="quote.regularMarketPrice < quote.analystTargetPrice" [class.negative]="quote.regularMarketPrice > quote.analystTargetPrice">
+                  {{ currencyService.formatNative(quote.analystTargetPrice, quote.currency) }}
+                </span>
+              </div>
+            }
+            @if (quote.recommendationKey) {
+              <div class="indicator">
+                <span class="ind-label">Rating</span>
+                <span class="ind-value rating" [class]="'rating-' + quote.recommendationKey">
+                  {{ quote.recommendationKey | titlecase }}
+                </span>
+              </div>
+            }
+          </div>
+        }
       </div>
 
       <div class="holdings-section">
@@ -342,6 +407,66 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
     }
     .pnl-total.positive { color: var(--green); }
     .pnl-total.negative { color: var(--red); }
+    .indicators-section {
+      border-top: 1px solid var(--border-light);
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    .indicators-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 4px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .indicators-header svg {
+      transition: transform var(--transition);
+    }
+    .indicators-header svg.expanded {
+      transform: rotate(180deg);
+    }
+    .indicators-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      padding-top: 10px;
+    }
+    .indicator {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ind-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .ind-value {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-align: right;
+    }
+    .ind-value.positive { color: var(--green); }
+    .ind-value.negative { color: var(--red); }
+    .ma-pct {
+      font-size: 10px;
+      margin-left: 2px;
+      opacity: 0.8;
+    }
+    .ind-value.rating {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .rating-strongBuy, .rating-buy { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+    .rating-hold { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+    .rating-sell, .rating-strongSell { background: rgba(239, 68, 68, 0.15); color: var(--red); }
   `]
 })
 export class StockCardComponent {
@@ -351,6 +476,7 @@ export class StockCardComponent {
   @Output() removed = new EventEmitter<string>();
 
   showHoldings = false;
+  showIndicators = false;
   holdingShares = 0;
   holdingAvgPrice = 0;
   Math = Math;
@@ -381,6 +507,16 @@ export class StockCardComponent {
   toggleHoldings(event: Event): void {
     event.stopPropagation();
     this.showHoldings = !this.showHoldings;
+  }
+
+  toggleIndicators(event: Event): void {
+    event.stopPropagation();
+    this.showIndicators = !this.showIndicators;
+  }
+
+  priceVsMA(ma: number | null): number {
+    if (!ma) return 0;
+    return ((this.quote.regularMarketPrice - ma) / ma) * 100;
   }
 
   saveHolding(): void {

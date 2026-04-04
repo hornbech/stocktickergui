@@ -21,6 +21,17 @@ export interface StockQuote {
   postMarketPrice: number | null;
   postMarketChange: number | null;
   postMarketChangePercent: number | null;
+  beta: number | null;
+  dividendYield: number | null;
+  epsTrailingTwelveMonths: number | null;
+  epsForward: number | null;
+  fiftyDayAverage: number | null;
+  twoHundredDayAverage: number | null;
+  fiftyDayAverageChangePercent: number | null;
+  twoHundredDayAverageChangePercent: number | null;
+  analystTargetPrice: number | null;
+  recommendationKey: string | null;
+  numberOfAnalystRatings: number | null;
 }
 
 export interface ChartDataPoint {

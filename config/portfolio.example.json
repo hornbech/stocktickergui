@@ -10,5 +10,12 @@
       "shares": 10,
       "avgPrice": 150.00
     }
+  ],
+  "pensionHoldings": [
+    {
+      "symbol": "FXAIX",
+      "shares": 50,
+      "avgPrice": 180.00
+    }
   ]
 }

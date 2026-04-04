@@ -6,12 +6,18 @@ interface PortfolioConfig {
   currency: string;
   tickers: string[];
   holdings: PortfolioEntry[];
+  pensionHoldings: PortfolioEntry[];
+}
+
+interface PensionPortfolio {
+  holdings: PortfolioEntry[];
 }
 
 @Injectable({ providedIn: 'root' })
 export class PortfolioService {
   entries = signal<PortfolioEntry[]>([]);
   tickers = signal<string[]>([]);
+  pensionEntries = signal<PortfolioEntry[]>([]);
   initialCurrency = signal<string>('USD');
   loaded = signal(false);
 
@@ -19,6 +25,10 @@ export class PortfolioService {
     const fromEntries = this.entries().map(e => e.symbol);
     const fromTickers = this.tickers();
     return [...new Set([...fromTickers, ...fromEntries])];
+  });
+
+  pensionSymbols = computed(() => {
+    return this.pensionEntries().map(e => e.symbol);
   });
 
   constructor(private http: HttpClient) {
@@ -30,6 +40,7 @@ export class PortfolioService {
       next: (config) => {
         this.tickers.set(config.tickers || []);
         this.entries.set(config.holdings || []);
+        this.pensionEntries.set(config.pensionHoldings || []);
         this.initialCurrency.set(config.currency || 'USD');
         this.loaded.set(true);
       },
@@ -76,5 +87,34 @@ export class PortfolioService {
 
   getEntry(symbol: string): PortfolioEntry | undefined {
     return this.entries().find(e => e.symbol === symbol.toUpperCase());
+  }
+
+  getPensionEntry(symbol: string): PortfolioEntry | undefined {
+    return this.pensionEntries().find(e => e.symbol === symbol.toUpperCase());
+  }
+
+  updatePensionHolding(symbol: string, shares: number, avgPrice: number): void {
+    const upper = symbol.toUpperCase();
+    const current = this.pensionEntries();
+    const idx = current.findIndex(e => e.symbol === upper);
+
+    let updated: PortfolioEntry[];
+    if (shares === 0 && avgPrice === 0) {
+      updated = current.filter(e => e.symbol !== upper);
+    } else if (idx >= 0) {
+      updated = [...current];
+      updated[idx] = { symbol: upper, shares, avgPrice };
+    } else {
+      updated = [...current, { symbol: upper, shares, avgPrice }];
+    }
+
+    this.pensionEntries.set(updated);
+    this.http.put<PensionPortfolio>('/api/portfolio/pension/holding', { symbol: upper, shares, avgPrice }).subscribe();
+  }
+
+  removePensionTicker(symbol: string): void {
+    const upper = symbol.toUpperCase();
+    this.pensionEntries.set(this.pensionEntries().filter(e => e.symbol !== upper));
+    this.http.delete<PensionPortfolio>(`/api/portfolio/pension/ticker/${upper}`).subscribe();
   }
 }

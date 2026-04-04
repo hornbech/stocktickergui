@@ -39,11 +39,11 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 - **Volume overlay** displayed alongside price data on all chart intervals
 - **Pre-market and after-hours** prices shown when the market is in extended hours
 - **Market status indicator** per ticker (Pre-Market, Open, After Hours, Closed)
+- **Three-tab portfolio system** -- Watchlist (tracking), Holdings (investments), Pension (retirement)
 - **GAK/GAV portfolio tracking** -- enter your average purchase price (GAK) and number of shares to see unrealized P&L; works without GAK too, showing just the current value
 - **Multi-currency display** -- each stock shows prices in its native currency (USD, GBP, EUR, DKK, etc.) with a currency badge on the card
 - **Currency dropdown** for portfolio totals -- choose from USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, or AUD; the summary table converts all holdings to your chosen display currency using live exchange rates
 - **Technical indicators** on each stock card -- Beta, Dividend Yield, EPS (TTM & Forward), MA50, MA200, Analyst Target Price, Analyst Rating
-- **Pension portfolio tab** -- separate tracking for pension and retirement accounts with dedicated holdings
 - **Sub-unit currency support** -- GBp (pence) is automatically converted to GBP for display; same for ILA (agorot) to ILS
 - **File-based persistence** -- portfolio config is stored in `config/portfolio.json`, mounted as a Docker volume so data survives container restarts
 - **Dark theme** with responsive layout that works on desktop and tablet
@@ -97,16 +97,12 @@ A boilerplate is provided at `config/portfolio.example.json`:
 ```json
 {
   "currency": "USD",
-  "tickers": [
-    "AAPL",
-    "MSFT"
-  ],
+  "tickers": ["AAPL", "MSFT"],
   "holdings": [
-    {
-      "symbol": "AAPL",
-      "shares": 10,
-      "avgPrice": 150.00
-    }
+    { "symbol": "AAPL", "shares": 50, "avgPrice": 150.00 }
+  ],
+  "pensionHoldings": [
+    { "symbol": "FXAIX", "shares": 100, "avgPrice": 180.00 }
   ]
 }
 ```
@@ -115,10 +111,14 @@ A boilerplate is provided at `config/portfolio.example.json`:
 |-------|------|-------------|
 | `currency` | `"USD"`, `"DKK"`, `"EUR"`, `"GBP"`, `"SEK"`, `"NOK"`, `"CHF"`, `"CAD"`, or `"AUD"` | Display currency for portfolio summary totals |
 | `tickers` | `string[]` | List of ticker symbols to track (e.g., `"AAPL"`, `"CNA.L"`, `"NOVO-B.CO"`) |
-| `holdings` | `object[]` | Your positions; each has `symbol`, `shares`, and `avgPrice` (GAK) |
-| `holdings[].symbol` | `string` | Ticker symbol, must match a ticker in the `tickers` array |
+| `holdings` | `object[]` | Your positions in regular investment accounts; each has `symbol`, `shares`, and `avgPrice` (GAK) |
+| `holdings[].symbol` | `string` | Ticker symbol |
 | `holdings[].shares` | `number` | Number of shares held |
 | `holdings[].avgPrice` | `number` | Average purchase price per share (GAK) in the stock's native currency. Set to `0` if unknown -- the dashboard will still show the current value |
+| `pensionHoldings` | `object[]` | Your positions in pension/retirement accounts (separate from regular holdings) |
+| `pensionHoldings[].symbol` | `string` | Pension fund ticker (e.g., `"FXAIX"`, `"VTI"`) |
+| `pensionHoldings[].shares` | `number` | Number of shares/units held |
+| `pensionHoldings[].avgPrice` | `number` | Average purchase price per share |
 
 Changes made through the web UI (adding/removing tickers, updating holdings, changing currency) are written back to this file automatically.
 
@@ -198,11 +198,12 @@ frontend/src/app/
 │   ├── currency.service.ts       # Exchange rates, formatting, native/converted display
 │   └── portfolio.service.ts      # Portfolio CRUD, syncs with backend /api/portfolio
 └── components/
-    ├── dashboard/                # Main layout, orchestrates data flow and auto-refresh
+    ├── dashboard/                # Main layout, tab management, auto-refresh
     ├── ticker-input/             # Search input with autocomplete dropdown
-    ├── stock-card/               # Per-ticker card: price, change, stats, holdings form
+    ├── stock-card/               # Per-ticker card: price, change, stats, indicators
     ├── stock-chart/              # TradingView Lightweight Charts wrapper (candlestick + volume)
-    ├── portfolio-summary/        # Aggregated portfolio table with converted totals
+    ├── portfolio-summary/        # Watchlist summary table with converted totals
+    ├── holdings-summary/         # Holdings tab with search and position management
     ├── pension-summary/          # Pension/retirement portfolio tracking
     ├── currency-toggle/          # Currency dropdown (USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, AUD)
     └── market-status/            # Market state indicator badge (Pre-Market, Open, etc.)
@@ -272,10 +273,36 @@ GET /api/quote/AAPL,MSFT,CNA.L
     "preMarketChangePercent": null,
     "postMarketPrice": 255.35,
     "postMarketChange": -0.57,
-    "postMarketChangePercent": -0.22
+    "postMarketChangePercent": -0.22,
+    "beta": 1.28,
+    "dividendYield": 0.41,
+    "epsTrailingTwelveMonths": 7.91,
+    "epsForward": 9.32,
+    "fiftyDayAverage": 260.36,
+    "twoHundredDayAverage": 249.15,
+    "fiftyDayAverageChangePercent": -1.71,
+    "twoHundredDayAverageChangePercent": 2.72,
+    "analystTargetPrice": 280.00,
+    "recommendationKey": "buy",
+    "numberOfAnalystRatings": 42
   }
 ]
 ```
+
+**Technical indicator fields:**
+| Field | Description |
+|-------|-------------|
+| `beta` | Volatility relative to the market (1.0 = same volatility) |
+| `dividendYield` | Annual dividend yield as percentage |
+| `epsTrailingTwelveMonths` | Trailing 12-month earnings per share |
+| `epsForward` | Forward EPS estimate |
+| `fiftyDayAverage` | 50-day moving average price |
+| `twoHundredDayAverage` | 200-day moving average price |
+| `fiftyDayAverageChangePercent` | Price change vs MA50 (%) |
+| `twoHundredDayAverageChangePercent` | Price change vs MA200 (%) |
+| `analystTargetPrice` | Mean analyst price target |
+| `recommendationKey` | Analyst rating: `strongBuy`, `buy`, `hold`, `sell`, `strongSell` |
+| `numberOfAnalystRatings` | Number of analysts covering the stock |
 
 The `currency` field reflects the stock's native trading currency (e.g., `"USD"`, `"GBp"`, `"DKK"`, `"EUR"`).
 
@@ -361,6 +388,34 @@ Add or update a holding. Set `shares` and `avgPrice` to `0` to remove a holding.
 { "symbol": "AAPL", "shares": 25, "avgPrice": 142.50 }
 ```
 
+#### `GET /api/portfolio/pension`
+
+Returns pension portfolio holdings.
+
+```json
+{
+  "holdings": [
+    { "symbol": "FXAIX", "shares": 100, "avgPrice": 180.00 }
+  ]
+}
+```
+
+#### `PUT /api/portfolio/pension/holding`
+
+Add or update a pension holding.
+
+```json
+{ "symbol": "FXAIX", "shares": 50, "avgPrice": 190.00 }
+```
+
+#### `DELETE /api/portfolio/pension/ticker/:symbol`
+
+Remove a ticker from the pension portfolio.
+
+```
+DELETE /api/portfolio/pension/ticker/FXAIX
+```
+
 All portfolio endpoints return the updated full config in the response.
 
 ### Currency
@@ -394,9 +449,9 @@ The application distinguishes between **native currency** and **display currency
 | Stock price on card | Native (from Yahoo Finance) | CNA.L shows GBP 2.19 |
 | Day range, 52-week range | Native | Shown in the stock's trading currency |
 | Currency badge on card | Native label | `USD`, `GBX` (for GBp), `DKK`, `EUR` |
-| Portfolio summary totals | Display (user's choice: USD or DKK) | All holdings converted and summed |
-| Value column in portfolio table | Display | Converted to USD or DKK |
-| P&L column in portfolio table | Display | Converted to USD or DKK |
+| Holdings/Pension summary totals | Display (user's choice) | All holdings converted and summed |
+| Value column in portfolio table | Display | Converted to chosen currency |
+| P&L column in portfolio table | Display | Converted to chosen currency |
 | Price column in portfolio table | Native | Shown in the stock's trading currency |
 
 **Sub-unit currencies:** Yahoo Finance reports some stocks in sub-units (e.g., London Stock Exchange stocks in GBp = pence). The app automatically converts these to the major unit for display (GBp 218.50 becomes GBP 2.19) and handles the conversion correctly when aggregating into portfolio totals.

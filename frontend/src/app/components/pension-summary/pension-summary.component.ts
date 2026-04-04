@@ -120,6 +120,9 @@ interface PensionItem {
                 @if (item.quote) {
                   <span class="currency">{{ currencyService.currencyLabel(item.quote.currency) }}</span>
                 }
+                <a class="yahoo-link" [href]="'https://finance.yahoo.com/quote/' + item.entry.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="View on Yahoo Finance">
+                  <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="11" fill="#7B1FA2"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">Y</text></svg>
+                </a>
               </span>
               <span>{{ item.quote ? currencyService.formatNative(item.quote.regularMarketPrice, item.quote?.currency || 'USD') : '—' }}</span>
               <span class="editable-cell">
@@ -378,6 +381,15 @@ interface PensionItem {
       background: var(--bg-secondary);
       border-radius: 4px;
       color: var(--text-muted);
+    }
+    .yahoo-link {
+      display: flex;
+      align-items: center;
+      opacity: 0.4;
+      transition: opacity var(--transition);
+    }
+    .yahoo-link:hover {
+      opacity: 1;
     }
     .actions {
       display: flex;

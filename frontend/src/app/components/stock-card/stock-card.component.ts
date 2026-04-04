@@ -18,6 +18,9 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
           <div class="symbol-row">
             <span class="symbol">{{ quote.symbol }}</span>
             <span class="currency-badge">{{ currencyService.currencyLabel(quote.currency) }}</span>
+            <a class="yahoo-link" [href]="'https://finance.yahoo.com/quote/' + quote.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="View on Yahoo Finance">
+              <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#7B1FA2"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">Y</text></svg>
+            </a>
           </div>
           <span class="name">{{ quote.shortName }}</span>
         </div>
@@ -244,6 +247,15 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
       border: 1px solid var(--border);
       color: var(--text-muted);
       letter-spacing: 0.5px;
+    }
+    .yahoo-link {
+      display: flex;
+      align-items: center;
+      opacity: 0.5;
+      transition: opacity var(--transition);
+    }
+    .yahoo-link:hover {
+      opacity: 1;
     }
     .name {
       font-size: 12px;

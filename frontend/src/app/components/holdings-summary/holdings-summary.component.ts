@@ -107,6 +107,7 @@ interface HoldingItem {
             <span>Ticker</span>
             <span>Price</span>
             <span>Shares</span>
+            <span>GAK</span>
             <span>Value</span>
             <span>P&L</span>
             <span></span>
@@ -120,7 +121,20 @@ interface HoldingItem {
                 }
               </span>
               <span>{{ item.quote ? currencyService.formatNative(item.quote.regularMarketPrice, item.quote?.currency || 'USD') : '—' }}</span>
-              <span>{{ item.entry.shares }}</span>
+              <span class="editable-cell">
+                <input type="number"
+                  [value]="item.entry.shares"
+                  (click)="$event.stopPropagation()"
+                  (change)="onSharesChange(item.entry.symbol, $event)"
+                  min="0" step="1">
+              </span>
+              <span class="editable-cell">
+                <input type="number"
+                  [value]="item.entry.avgPrice"
+                  (click)="$event.stopPropagation()"
+                  (change)="onAvgPriceChange(item.entry.symbol, $event)"
+                  min="0" step="0.01">
+              </span>
               <span>{{ currencyService.formatConverted(holdingItemValue(item), item.quote?.currency || 'USD') }}</span>
               <span [class.positive]="holdingPnL(item) >= 0" [class.negative]="holdingPnL(item) < 0">
                 @if (item.entry.avgPrice > 0) {
@@ -141,6 +155,7 @@ interface HoldingItem {
           }
           <div class="table-footer">
             <span>Total</span>
+            <span></span>
             <span></span>
             <span></span>
             <span>{{ currencyService.formatDisplay(totalHoldingValue()) }}</span>
@@ -313,7 +328,7 @@ interface HoldingItem {
     }
     .table-header, .table-row, .table-footer {
       display: grid;
-      grid-template-columns: 1.5fr 1fr 0.8fr 1fr 1.2fr 50px;
+      grid-template-columns: 1.5fr 1fr 0.8fr 0.8fr 1fr 1.2fr 50px;
       gap: 12px;
       padding: 12px 20px;
       align-items: center;
@@ -374,6 +389,21 @@ interface HoldingItem {
     .remove-btn:hover {
       background: var(--red-bg);
       color: var(--red);
+    }
+    .editable-cell input {
+      width: 80px;
+      padding: 4px 6px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 12px;
+      text-align: right;
+    }
+    .editable-cell input:focus {
+      outline: none;
+      border-color: var(--blue);
     }
     .positive { color: var(--green); }
     .negative { color: var(--red); }
@@ -473,6 +503,20 @@ export class HoldingsSummaryComponent {
     this.resetForm();
     this.showAddForm = false;
     this.portfolioChanged.emit();
+  }
+
+  onSharesChange(symbol: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const shares = parseFloat(input.value) || 0;
+    const entry = this.portfolioService.getEntry(symbol);
+    this.portfolioService.updateHolding(symbol, shares, entry?.avgPrice || 0);
+  }
+
+  onAvgPriceChange(symbol: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const avgPrice = parseFloat(input.value) || 0;
+    const entry = this.portfolioService.getEntry(symbol);
+    this.portfolioService.updateHolding(symbol, entry?.shares || 0, avgPrice);
   }
 
   removeHolding(symbol: string): void {

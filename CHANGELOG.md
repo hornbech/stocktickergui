@@ -1,0 +1,39 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Added
+- **Responsive mobile layout** -- the dashboard now auto-detects phone screens (viewport <= 768px) and adapts the entire UI:
+  - Compact header with stacked title and currency selector
+  - Horizontally scrollable tab bar
+  - Single-column stock cards and overview summary cards
+  - Holdings and Pension tables switch from 7-column grid to 2-column card layout with the header row hidden
+  - Shorter chart heights (main: 250px, sub-panels: 80px)
+  - Compact news ticker with smaller text
+  - 16px input font size to prevent iOS Safari auto-zoom
+  - Currency exchange rate hidden on small screens to save space
+- **Mobile Support section** in README documentation
+- **Creator attribution and open source notice** in README
+- **CHANGELOG.md** to track project changes
+
+### Removed
+- `.vscode/` directory from version control (already in `.gitignore`)
+
+## [1.0.0] - 2026-04-04
+
+### Added
+- Four-tab dashboard: Overview, Watchlist, Holdings, Pension
+- Real-time stock quotes with 30-second auto-refresh
+- Interactive candlestick charts with TradingView Lightweight Charts
+- Technical indicators: EMA(20), SMA(50), SMA(200), Bollinger Bands, RSI(14), MACD(12,26,9), Volume
+- Scrolling news ticker from Yahoo Finance RSS feeds
+- Ticker search with autocomplete
+- Multi-currency display (USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, AUD)
+- Portfolio management with GAK/GAV tracking and inline editing
+- Separate pension portfolio tracking
+- Overview tab with combined Holdings + Pension totals
+- File-based persistence via `config/portfolio.json`
+- Swagger API documentation at `/api/docs/`
+- Docker + nginx deployment

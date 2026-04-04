@@ -76,6 +76,16 @@ All indicators are calculated client-side from OHLCV data.
 - **Currency dropdown** -- choose from USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, AUD
 - **Sub-unit currency support** -- GBp (pence) and ILA (agorot) auto-converted
 
+### Mobile Support
+
+- **Responsive layout** -- automatically adapts to phone screens (< 768px viewport)
+- **Compact header** -- stacked layout with smaller title and hidden exchange rate
+- **Scrollable tabs** -- horizontal scroll for the view toggle on narrow screens
+- **Stacked cards** -- single-column grid for stock cards and overview summaries
+- **Mobile-friendly tables** -- holdings/pension tables switch to a 2-column card layout with hidden header row
+- **Shorter charts** -- main chart 250px, sub-panels 80px to fit phone screens
+- **Touch-friendly inputs** -- 16px font on inputs to prevent iOS auto-zoom
+
 ### Infrastructure
 
 - **File-based persistence** -- portfolio config stored in `config/portfolio.json`

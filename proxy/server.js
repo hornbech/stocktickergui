@@ -506,26 +506,40 @@ app.get('/api/currency/rates', async (_req, res) => {
 
 // --- Portfolio Config ---
 
+function getDefaultConfig() {
+  return {
+    activePortfolio: 'default',
+    portfolios: {
+      default: { currency: 'USD', tickers: [], holdings: [] },
+      pension: { currency: 'USD', tickers: [], holdings: [] }
+    }
+  };
+}
+
 function readConfig() {
   try {
     if (existsSync(CONFIG_PATH)) {
-      return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+      const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+      if (config.portfolios) {
+        return config;
+      }
     }
   } catch (err) {
     console.error('Failed to read config:', err.message);
   }
-  return { currency: 'USD', tickers: [], holdings: [], pensionHoldings: [] };
+  return getDefaultConfig();
 }
 
 function writeConfig(config) {
   try {
-    if (!config.pensionHoldings) {
-      config.pensionHoldings = [];
-    }
     writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
   } catch (err) {
     console.error('Failed to write config:', err.message);
   }
+}
+
+function getDefaultPortfolio() {
+  return { currency: 'USD', tickers: [], holdings: [] };
 }
 
 // Get full portfolio config
@@ -539,55 +553,59 @@ app.put('/api/portfolio', (req, res) => {
   if (!config || typeof config !== 'object') {
     return res.status(400).json({ error: 'Invalid config' });
   }
-  // Ensure valid structure
-  const sanitized = {
-    currency: config.currency || 'USD',
-    tickers: Array.isArray(config.tickers) ? config.tickers : [],
-    holdings: Array.isArray(config.holdings) ? config.holdings : []
-  };
-  writeConfig(sanitized);
-  res.json(sanitized);
+  if (!config.portfolios) {
+    config.portfolios = getDefaultConfig().portfolios;
+  }
+  if (!config.portfolios.default) {
+    config.portfolios.default = getDefaultPortfolio();
+  }
+  if (!config.portfolios.pension) {
+    config.portfolios.pension = getDefaultPortfolio();
+  }
+  writeConfig(config);
+  res.json(config);
 });
 
-// Add a ticker
+// Add a ticker to default portfolio
 app.post('/api/portfolio/ticker', (req, res) => {
   const { symbol } = req.body;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
   const config = readConfig();
   const upper = symbol.toUpperCase();
-  if (!config.tickers.includes(upper)) {
-    config.tickers.push(upper);
+  if (!config.portfolios.default.tickers.includes(upper)) {
+    config.portfolios.default.tickers.push(upper);
     writeConfig(config);
   }
   res.json(config);
 });
 
-// Remove a ticker
+// Remove a ticker from default portfolio
 app.delete('/api/portfolio/ticker/:symbol', (req, res) => {
   const upper = req.params.symbol.toUpperCase();
   const config = readConfig();
-  config.tickers = config.tickers.filter(t => t !== upper);
-  config.holdings = config.holdings.filter(h => h.symbol !== upper);
+  config.portfolios.default.tickers = config.portfolios.default.tickers.filter(t => t !== upper);
+  config.portfolios.default.holdings = config.portfolios.default.holdings.filter(h => h.symbol !== upper);
   writeConfig(config);
   res.json(config);
 });
 
-// Update a holding (GAK/shares)
+// Update a holding in default portfolio (GAK/shares)
 app.put('/api/portfolio/holding', (req, res) => {
   const { symbol, shares, avgPrice } = req.body;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
   const config = readConfig();
   const upper = symbol.toUpperCase();
-  const idx = config.holdings.findIndex(h => h.symbol === upper);
+  const holdings = config.portfolios.default.holdings;
+  const idx = holdings.findIndex(h => h.symbol === upper);
 
   if (shares === 0 && avgPrice === 0) {
-    config.holdings = config.holdings.filter(h => h.symbol !== upper);
+    config.portfolios.default.holdings = holdings.filter(h => h.symbol !== upper);
   } else if (idx >= 0) {
-    config.holdings[idx] = { symbol: upper, shares, avgPrice };
+    holdings[idx] = { symbol: upper, shares, avgPrice };
   } else {
-    config.holdings.push({ symbol: upper, shares, avgPrice });
+    holdings.push({ symbol: upper, shares, avgPrice });
   }
   writeConfig(config);
   res.json(config);
@@ -595,20 +613,26 @@ app.put('/api/portfolio/holding', (req, res) => {
 
 // --- Pension Portfolio ---
 
-function readPensionHoldings() {
+function getPensionHoldings() {
   const config = readConfig();
-  return config.pensionHoldings || [];
+  return config.portfolios?.pension?.holdings || [];
 }
 
 function writePensionHoldings(holdings) {
   const config = readConfig();
-  config.pensionHoldings = holdings;
+  if (!config.portfolios) {
+    config.portfolios = getDefaultConfig().portfolios;
+  }
+  if (!config.portfolios.pension) {
+    config.portfolios.pension = getDefaultPortfolio();
+  }
+  config.portfolios.pension.holdings = holdings;
   writeConfig(config);
 }
 
 // Get pension portfolio
 app.get('/api/portfolio/pension', (_req, res) => {
-  res.json({ holdings: readPensionHoldings() });
+  res.json({ holdings: getPensionHoldings() });
 });
 
 // Update pension holding
@@ -616,13 +640,12 @@ app.put('/api/portfolio/pension/holding', (req, res) => {
   const { symbol, shares, avgPrice } = req.body;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
-  const holdings = readPensionHoldings();
+  const holdings = getPensionHoldings();
   const upper = symbol.toUpperCase();
   const idx = holdings.findIndex(h => h.symbol === upper);
 
   if (shares === 0 && avgPrice === 0) {
-    const filtered = holdings.filter(h => h.symbol !== upper);
-    writePensionHoldings(filtered);
+    writePensionHoldings(holdings.filter(h => h.symbol !== upper));
   } else if (idx >= 0) {
     holdings[idx] = { symbol: upper, shares, avgPrice };
     writePensionHoldings(holdings);
@@ -630,7 +653,7 @@ app.put('/api/portfolio/pension/holding', (req, res) => {
     holdings.push({ symbol: upper, shares, avgPrice });
     writePensionHoldings(holdings);
   }
-  res.json({ holdings: readPensionHoldings() });
+  res.json({ holdings: getPensionHoldings() });
 });
 
 // Remove pension ticker

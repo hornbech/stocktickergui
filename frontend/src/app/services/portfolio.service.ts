@@ -3,10 +3,19 @@ import { HttpClient } from '@angular/common/http';
 import { PortfolioEntry } from '../models/portfolio.model';
 
 interface PortfolioConfig {
-  currency: string;
-  tickers: string[];
-  holdings: PortfolioEntry[];
-  pensionHoldings: PortfolioEntry[];
+  activePortfolio: string;
+  portfolios: {
+    default: {
+      currency: string;
+      tickers: string[];
+      holdings: PortfolioEntry[];
+    };
+    pension: {
+      currency: string;
+      tickers: string[];
+      holdings: PortfolioEntry[];
+    };
+  };
 }
 
 interface PensionPortfolio {
@@ -38,10 +47,13 @@ export class PortfolioService {
   private loadFromServer(): void {
     this.http.get<PortfolioConfig>('/api/portfolio').subscribe({
       next: (config) => {
-        this.tickers.set(config.tickers || []);
-        this.entries.set(config.holdings || []);
-        this.pensionEntries.set(config.pensionHoldings || []);
-        this.initialCurrency.set(config.currency || 'USD');
+        const defaultPortfolio = config.portfolios?.default;
+        const pensionPortfolio = config.portfolios?.pension;
+        
+        this.tickers.set(defaultPortfolio?.tickers || []);
+        this.entries.set(defaultPortfolio?.holdings || []);
+        this.pensionEntries.set(pensionPortfolio?.holdings || []);
+        this.initialCurrency.set(defaultPortfolio?.currency || 'USD');
         this.loaded.set(true);
       },
       error: () => {

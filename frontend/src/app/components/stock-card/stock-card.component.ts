@@ -18,9 +18,17 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
           <div class="symbol-row">
             <span class="symbol">{{ quote.symbol }}</span>
             <span class="currency-badge">{{ currencyService.currencyLabel(quote.currency) }}</span>
-            <a class="yahoo-link" [href]="'https://finance.yahoo.com/quote/' + quote.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="View on Yahoo Finance">
-              <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#7B1FA2"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">Y</text></svg>
-            </a>
+            <span class="external-links">
+              <a class="ext-link" [href]="'https://finance.yahoo.com/quote/' + quote.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="Yahoo Finance">
+                <svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="11" fill="#7B1FA2"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">Y</text></svg>
+              </a>
+              <a class="ext-link" [href]="'https://stocktwits.com/symbol/' + quote.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="StockTwits">
+                <svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="11" fill="#1DA1F2"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="700" fill="white" font-family="Arial,sans-serif">ST</text></svg>
+              </a>
+              <a class="ext-link" [href]="'https://www.reddit.com/search/?q=%24' + quote.symbol + '+stock'" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="Reddit">
+                <svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="11" fill="#FF4500"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="Arial,sans-serif">R</text></svg>
+              </a>
+            </span>
           </div>
           <span class="name">{{ quote.shortName }}</span>
         </div>
@@ -248,13 +256,18 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
       color: var(--text-muted);
       letter-spacing: 0.5px;
     }
-    .yahoo-link {
+    .external-links {
       display: flex;
       align-items: center;
-      opacity: 0.5;
+      gap: 4px;
+    }
+    .ext-link {
+      display: flex;
+      align-items: center;
+      opacity: 0.45;
       transition: opacity var(--transition);
     }
-    .yahoo-link:hover {
+    .ext-link:hover {
       opacity: 1;
     }
     .name {

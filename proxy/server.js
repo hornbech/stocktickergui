@@ -2,6 +2,7 @@ import express from 'express';
 import YahooFinance from 'yahoo-finance2';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import swaggerUi from 'swagger-ui-express';
+import path from 'path';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
@@ -11,6 +12,87 @@ app.use(express.json());
 const PORT = 3000;
 
 const CONFIG_PATH = process.env.CONFIG_PATH || '/data/portfolio.json';
+const CACHE_PATH = process.env.CACHE_PATH || path.join(path.dirname(CONFIG_PATH), 'cache.json');
+
+// --- JSON File Cache ---
+const CHART_TTL = {
+  '1d':  60_000,       // 1 minute
+  '5d':  300_000,      // 5 minutes
+  '1mo': 3_600_000,    // 1 hour
+  '3mo': 3_600_000,    // 1 hour
+  '1y':  86_400_000,   // 24 hours
+  '5y':  86_400_000,   // 24 hours
+};
+
+function readCache() {
+  try {
+    if (existsSync(CACHE_PATH)) {
+      return JSON.parse(readFileSync(CACHE_PATH, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('Failed to read cache:', err.message);
+  }
+  return { charts: {}, currency: null };
+}
+
+function writeCache(cache) {
+  try {
+    writeFileSync(CACHE_PATH, JSON.stringify(cache), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write cache:', err.message);
+  }
+}
+
+function getCachedChart(symbol, range, interval) {
+  const cache = readCache();
+  const key = `${symbol}|${range}|${interval}`;
+  const entry = cache.charts?.[key];
+  if (entry && Date.now() < entry.expiresAt) return entry.data;
+  return null;
+}
+
+function setCachedChart(symbol, range, interval, data) {
+  const cache = readCache();
+  const key = `${symbol}|${range}|${interval}`;
+  const ttl = CHART_TTL[range] || 3_600_000;
+  if (!cache.charts) cache.charts = {};
+  cache.charts[key] = { data, expiresAt: Date.now() + ttl };
+  writeCache(cache);
+}
+
+function getCachedCurrency() {
+  const cache = readCache();
+  const entry = cache.currency;
+  if (entry && Date.now() < entry.expiresAt) return entry.data;
+  return null;
+}
+
+function setCachedCurrency(rates) {
+  const cache = readCache();
+  cache.currency = { data: rates, expiresAt: Date.now() + CURRENCY_TTL };
+  writeCache(cache);
+}
+
+// Purge expired chart entries periodically (every hour)
+setInterval(() => {
+  try {
+    const cache = readCache();
+    const now = Date.now();
+    let purged = 0;
+    for (const key of Object.keys(cache.charts || {})) {
+      if (cache.charts[key].expiresAt < now) {
+        delete cache.charts[key];
+        purged++;
+      }
+    }
+    if (purged > 0) {
+      writeCache(cache);
+      console.log(`Cache cleanup: purged ${purged} expired chart entries`);
+    }
+  } catch (err) {
+    console.error('Cache cleanup error:', err.message);
+  }
+}, 3_600_000);
 
 // --- Swagger / OpenAPI ---
 const swaggerSpec = {
@@ -482,6 +564,9 @@ app.get('/api/chart/:symbol', async (req, res) => {
     const range = req.query.range || '1mo';
     const interval = req.query.interval || '1d';
 
+    const cached = getCachedChart(symbol, range, interval);
+    if (cached) return res.json(cached);
+
     const result = await yahooFinance.chart(symbol, {
       period1: getStartDate(range),
       interval: interval
@@ -502,6 +587,7 @@ app.get('/api/chart/:symbol', async (req, res) => {
         volume: q.volume || 0
       }));
 
+    setCachedChart(symbol, range, interval, data);
     res.json(data);
   } catch (err) {
     console.error('Chart error:', err.message);
@@ -626,10 +712,19 @@ app.get('/api/news', async (req, res) => {
 // Get exchange rates (all rates relative to USD)
 app.get('/api/currency/rates', async (_req, res) => {
   try {
+    // Fast path: in-memory
     if (currencyCache.rate && Date.now() - currencyCache.timestamp < CURRENCY_TTL) {
       return res.json(currencyCache.rate);
     }
 
+    // Warm path: disk cache (survives restarts)
+    const diskCached = getCachedCurrency();
+    if (diskCached) {
+      currencyCache = { rate: diskCached, timestamp: Date.now() };
+      return res.json(diskCached);
+    }
+
+    // Cold path: fetch from Frankfurter
     const response = await fetch('https://api.frankfurter.dev/v1/latest?base=USD');
     const data = await response.json();
     const rates = data.rates || {};
@@ -645,10 +740,15 @@ app.get('/api/currency/rates', async (_req, res) => {
     }
 
     currencyCache = { rate: rates, timestamp: Date.now() };
+    setCachedCurrency(rates);
     res.json(rates);
   } catch (err) {
     console.error('Currency error:', err.message);
-    res.json(currencyCache.rate || { USD: 1, DKK: 6.85, GBP: 0.79, GBp: 79 });
+    // Fallback chain: in-memory -> disk (ignore expiry) -> hardcoded
+    if (currencyCache.rate) return res.json(currencyCache.rate);
+    const diskFallback = readCache().currency?.data;
+    if (diskFallback) return res.json(diskFallback);
+    res.json({ USD: 1, DKK: 6.85, GBP: 0.79, GBp: 79 });
   }
 });
 

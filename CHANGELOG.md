@@ -14,6 +14,12 @@ All notable changes to this project will be documented in this file.
   - Compact news ticker with smaller text
   - 16px input font size to prevent iOS Safari auto-zoom
   - Currency exchange rate hidden on small screens to save space
+- **JSON file cache for chart data and currency rates** -- persists to `config/cache.json` across container restarts:
+  - Chart data cached with range-dependent TTLs (1min for 1D, 5min for 5D, 1hr for 1M/3M, 24hr for 1Y/5Y)
+  - Currency rates cached to disk with 5-minute TTL, providing a warm fallback on cold starts
+  - Three-tier currency fallback: in-memory -> disk cache (even if expired) -> hardcoded defaults
+  - Hourly automatic cleanup of expired chart cache entries
+  - Zero new dependencies (uses existing `fs` module)
 - **Mobile Support section** in README documentation
 - **Creator attribution and open source notice** in README
 - **CHANGELOG.md** to track project changes

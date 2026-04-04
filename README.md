@@ -182,6 +182,7 @@ A boilerplate is provided at `config/portfolio.example.json`:
 | Quote cache TTL | `proxy/server.js` | `10000` ms | How long quotes are cached |
 | Currency rate cache TTL | `proxy/server.js` | `300000` ms | How long exchange rates are cached |
 | News cache TTL | `proxy/server.js` | `60000` ms | How long news is cached |
+| Chart cache TTL | `proxy/server.js` | Range-dependent | 1min (1D), 5min (5D), 1hr (1M/3M), 24hr (1Y/5Y) |
 
 ---
 
@@ -415,7 +416,7 @@ Returns exchange rates relative to USD from Frankfurter API (cached 5 min).
 |------|--------|---------|-------|
 | Stock quotes | Yahoo Finance via `yahoo-finance2` | Not required | 10 sec |
 | Ticker search | Yahoo Finance | Not required | None |
-| Chart data | Yahoo Finance | Not required | None |
+| Chart data | Yahoo Finance | Not required | Range-dependent (1min--24hr) |
 | News feeds | Yahoo Finance RSS | Not required | 1 min |
 | Exchange rates | Frankfurter API | Not required | 5 min |
 

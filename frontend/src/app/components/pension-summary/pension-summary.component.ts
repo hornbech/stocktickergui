@@ -232,6 +232,7 @@ interface PensionItem {
       flex: 1;
       min-width: 200px;
       position: relative;
+      z-index: 100;
     }
     .search-input-group .search-icon {
       position: absolute;
@@ -245,16 +246,15 @@ interface PensionItem {
       padding-left: 32px;
     }
     .search-results {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      right: 0;
+      position: fixed;
+      min-width: 250px;
+      max-width: 300px;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow-lg);
-      z-index: 100;
-      max-height: 200px;
+      z-index: 1000;
+      max-height: 250px;
       overflow-y: auto;
     }
     .search-results .result-item {

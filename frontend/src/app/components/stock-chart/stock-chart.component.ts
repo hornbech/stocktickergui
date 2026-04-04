@@ -1,10 +1,20 @@
-import { Component, Input, OnChanges, OnDestroy, ElementRef, ViewChild, SimpleChanges, signal } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, ElementRef, ViewChild, SimpleChanges, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StockService } from '../../services/stock.service';
 import { CHART_RANGES, ChartRange } from '../../models/stock.model';
 
 declare const LightweightCharts: any;
+
+interface ChartIndicators {
+  ema20: boolean;
+  sma50: boolean;
+  sma200: boolean;
+  bollingerBands: boolean;
+  volume: boolean;
+  rsi: boolean;
+  macd: boolean;
+}
 
 @Component({
   selector: 'app-stock-chart',
@@ -24,13 +34,56 @@ declare const LightweightCharts: any;
               </button>
             }
           </div>
-          <label class="indicator-toggle">
-            <input type="checkbox" [(ngModel)]="showIndicators" (change)="toggleIndicators()">
-            <span>MA</span>
-          </label>
+          <div class="indicator-buttons">
+            @for (ind of indicatorList; track ind.key) {
+              <button
+                class="indicator-btn"
+                [class.active]="indicators()[ind.key]"
+                (click)="toggleIndicator(ind.key)">
+                {{ ind.label }}
+              </button>
+            }
+          </div>
         </div>
       </div>
-      <div #chartEl class="chart-area"></div>
+
+      <div #mainChartEl class="chart-area main-chart"></div>
+
+      @if (indicators().rsi) {
+        <div class="sub-panel">
+          <div class="sub-panel-header">
+            <span>RSI(14)</span>
+            <span class="rsi-value" [class.overbought]="rsiValue() > 70" [class.oversold]="rsiValue() < 30">
+              {{ rsiValue() | number:'1.1-1' }}
+            </span>
+          </div>
+          <div #rsiChartEl class="chart-area sub-chart"></div>
+        </div>
+      }
+
+      @if (indicators().macd) {
+        <div class="sub-panel">
+          <div class="sub-panel-header">
+            <span>MACD(12,26,9)</span>
+            <span class="macd-values">
+              <span>M: {{ macdValue().macd | number:'1.2-2' }}</span>
+              <span>S: {{ macdValue().signal | number:'1.2-2' }}</span>
+              <span>H: {{ macdValue().histogram | number:'1.2-2' }}</span>
+            </span>
+          </div>
+          <div #macdChartEl class="chart-area sub-chart"></div>
+        </div>
+      }
+
+      @if (indicators().volume) {
+        <div class="sub-panel">
+          <div class="sub-panel-header">
+            <span>Volume</span>
+          </div>
+          <div #volumeChartEl class="chart-area sub-chart"></div>
+        </div>
+      }
+
       @if (loading) {
         <div class="chart-loading">
           <div class="spinner"></div>
@@ -52,7 +105,7 @@ declare const LightweightCharts: any;
     .chart-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: 16px;
       flex-wrap: wrap;
       gap: 12px;
@@ -60,11 +113,13 @@ declare const LightweightCharts: any;
     .chart-header h3 {
       font-size: 16px;
       font-weight: 600;
+      margin: 0;
     }
     .chart-controls {
       display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
       align-items: center;
-      gap: 16px;
     }
     .range-buttons {
       display: flex;
@@ -90,24 +145,71 @@ declare const LightweightCharts: any;
       border-color: var(--blue);
       color: #fff;
     }
-    .indicator-toggle {
+    .indicator-buttons {
       display: flex;
-      align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
+    }
+    .indicator-btn {
+      padding: 5px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
       cursor: pointer;
+      transition: all var(--transition);
+    }
+    .indicator-btn:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-secondary);
+    }
+    .indicator-btn.active {
+      background: var(--blue-bg);
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    .chart-area {
+      width: 100%;
+    }
+    .main-chart {
+      height: 350px;
+    }
+    .sub-chart {
+      height: 100px;
+    }
+    .sub-panel {
+      margin-top: 8px;
+      border-top: 1px solid var(--border-light);
+      padding-top: 12px;
+    }
+    .sub-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
       font-size: 12px;
       color: var(--text-secondary);
     }
-    .indicator-toggle input {
-      cursor: pointer;
-      accent-color: var(--blue);
+    .rsi-value {
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
     }
-    .indicator-toggle span {
-      font-weight: 500;
+    .rsi-value.overbought {
+      background: var(--red-bg);
+      color: var(--red);
     }
-    .chart-area {
-      height: 400px;
-      width: 100%;
+    .rsi-value.oversold {
+      background: var(--green-bg);
+      color: var(--green);
+    }
+    .macd-values {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
     }
     .chart-loading {
       position: absolute;
@@ -138,20 +240,49 @@ declare const LightweightCharts: any;
 })
 export class StockChartComponent implements OnChanges, OnDestroy {
   @Input() symbol = '';
-  @ViewChild('chartEl', { static: true }) chartEl!: ElementRef;
+  @ViewChild('mainChartEl', { static: true }) mainChartEl!: ElementRef;
+  @ViewChild('rsiChartEl', { static: true }) rsiChartEl!: ElementRef;
+  @ViewChild('macdChartEl', { static: true }) macdChartEl!: ElementRef;
+  @ViewChild('volumeChartEl', { static: true }) volumeChartEl!: ElementRef;
 
   ranges = CHART_RANGES;
-  activeRange: ChartRange = CHART_RANGES[1]; // default 5D
-  showIndicators = false;
+  activeRange: ChartRange = CHART_RANGES[1];
+  indicators = signal<ChartIndicators>({
+    ema20: true,
+    sma50: true,
+    sma200: true,
+    bollingerBands: true,
+    volume: true,
+    rsi: false,
+    macd: false
+  });
+
+  indicatorList = [
+    { key: 'ema20' as keyof ChartIndicators, label: 'EMA20' },
+    { key: 'sma50' as keyof ChartIndicators, label: 'SMA50' },
+    { key: 'sma200' as keyof ChartIndicators, label: 'SMA200' },
+    { key: 'bollingerBands' as keyof ChartIndicators, label: 'BB' },
+    { key: 'volume' as keyof ChartIndicators, label: 'VOL' },
+    { key: 'rsi' as keyof ChartIndicators, label: 'RSI' },
+    { key: 'macd' as keyof ChartIndicators, label: 'MACD' }
+  ];
+
   loading = false;
   error = false;
+  rsiValue = signal(50);
+  macdValue = signal({ macd: 0, signal: 0, histogram: 0 });
 
-  private chart: any = null;
+  private mainChart: any = null;
+  private rsiChart: any = null;
+  private macdChart: any = null;
+  private volumeChart: any = null;
   private candleSeries: any = null;
+  private bbSeries: any = null;
+  private bbUpperSeries: any = null;
+  private bbLowerSeries: any = null;
   private volumeSeries: any = null;
-  private ma50Series: any = null;
-  private ma200Series: any = null;
-  private chartData: any[] = [];
+  private volumeMaSeries: any = null;
+  private charts: any[] = [];
 
   constructor(private stockService: StockService) {}
 
@@ -166,62 +297,12 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     this.loadChart();
   }
 
-  toggleIndicators(): void {
-    if (this.chart && this.chartData.length > 0) {
-      this.updateIndicators();
-    }
-  }
-
-  private calculateMA(data: any[], period: number): { time: number; value: number }[] {
-    const ma: { time: number; value: number }[] = [];
-    for (let i = period - 1; i < data.length; i++) {
-      let sum = 0;
-      for (let j = 0; j < period; j++) {
-        sum += data[i - j].close;
-      }
-      ma.push({
-        time: data[i].time,
-        value: sum / period
-      });
-    }
-    return ma;
-  }
-
-  private updateIndicators(): void {
-    if (!this.chart) return;
-
-    if (this.showIndicators) {
-      if (!this.ma50Series) {
-        this.ma50Series = this.chart.addLineSeries({
-          color: '#f59e0b',
-          lineWidth: 1,
-          title: 'MA50'
-        });
-        const ma50Data = this.calculateMA(this.chartData, 50);
-        if (ma50Data.length > 0) {
-          this.ma50Series.setData(ma50Data);
-        }
-      }
-
-      if (!this.ma200Series) {
-        this.ma200Series = this.chart.addLineSeries({
-          color: '#8b5cf6',
-          lineWidth: 1,
-          title: 'MA200'
-        });
-        const ma200Data = this.calculateMA(this.chartData, 200);
-        if (ma200Data.length > 0) {
-          this.ma200Series.setData(ma200Data);
-        }
-      }
-    } else {
-      if (this.ma50Series) {
-        this.ma50Series.setData([]);
-      }
-      if (this.ma200Series) {
-        this.ma200Series.setData([]);
-      }
-    }
+  toggleIndicator(key: keyof ChartIndicators): void {
+    this.indicators.update(current => ({
+      ...current,
+      [key]: !current[key]
+    }));
+    this.updateCharts();
   }
 
   private loadChart(): void {
@@ -238,8 +319,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
             this.error = true;
             return;
           }
-          this.chartData = data;
-          this.renderChart(data);
+          this.renderCharts(data);
         },
         error: () => {
           this.loading = false;
@@ -248,45 +328,58 @@ export class StockChartComponent implements OnChanges, OnDestroy {
       });
   }
 
-  private renderChart(data: any[]): void {
-    if (this.chart) {
-      this.chart.remove();
-      this.chart = null;
-      this.ma50Series = null;
-      this.ma200Series = null;
-    }
+  private destroyCharts(): void {
+    this.charts.forEach(c => c?.remove());
+    this.charts = [];
+    this.mainChart = null;
+    this.rsiChart = null;
+    this.macdChart = null;
+    this.volumeChart = null;
+    this.candleSeries = null;
+    this.bbSeries = null;
+    this.bbUpperSeries = null;
+    this.bbLowerSeries = null;
+    this.volumeSeries = null;
+    this.volumeMaSeries = null;
+  }
 
-    const container = this.chartEl.nativeElement;
-
-    this.chart = LightweightCharts.createChart(container, {
+  private createBaseChart(container: HTMLElement, height: number): any {
+    const chart = LightweightCharts.createChart(container, {
       width: container.clientWidth,
-      height: 400,
+      height: height,
       layout: {
         background: { type: 'solid', color: 'transparent' },
         textColor: '#8b949e',
         fontFamily: 'Inter, sans-serif',
-        fontSize: 12
+        fontSize: 10
       },
       grid: {
-        vertLines: { color: 'rgba(48, 54, 61, 0.3)' },
-        horzLines: { color: 'rgba(48, 54, 61, 0.3)' }
+        vertLines: { color: 'rgba(48, 54, 61, 0.2)' },
+        horzLines: { color: 'rgba(48, 54, 61, 0.2)' }
       },
       crosshair: {
-        mode: 0,
+        mode: LightweightCharts.CrosshairMode.Normal,
         vertLine: { color: 'rgba(88, 166, 255, 0.3)', width: 1, style: 2 },
         horzLine: { color: 'rgba(88, 166, 255, 0.3)', width: 1, style: 2 }
       },
-      rightPriceScale: {
-        borderColor: 'rgba(48, 54, 61, 0.5)'
-      },
+      rightPriceScale: { borderColor: 'rgba(48, 54, 61, 0.3)' },
       timeScale: {
-        borderColor: 'rgba(48, 54, 61, 0.5)',
+        borderColor: 'rgba(48, 54, 61, 0.3)',
         timeVisible: this.activeRange.range === '1d' || this.activeRange.range === '5d'
       },
       handleScroll: { vertTouchDrag: false },
     });
+    this.charts.push(chart);
+    return chart;
+  }
 
-    this.candleSeries = this.chart.addCandlestickSeries({
+  private renderCharts(data: any[]): void {
+    this.destroyCharts();
+
+    const mainContainer = this.mainChartEl.nativeElement;
+    this.mainChart = this.createBaseChart(mainContainer, 350);
+
+    this.candleSeries = this.mainChart.addCandlestickSeries({
       upColor: '#3fb950',
       downColor: '#f85149',
       borderUpColor: '#3fb950',
@@ -294,8 +387,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
       wickUpColor: '#3fb950',
       wickDownColor: '#f85149'
     });
-
-    this.candleSeries.setData(data.map((d: any) => ({
+    this.candleSeries.setData(data.map(d => ({
       time: d.time,
       open: d.open,
       high: d.high,
@@ -303,40 +395,321 @@ export class StockChartComponent implements OnChanges, OnDestroy {
       close: d.close
     })));
 
-    this.volumeSeries = this.chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'volume'
-    });
+    this.calculateBollingerBands(data);
+    this.calculateAndRenderMAs(data);
 
-    this.chart.priceScale('volume').applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 }
-    });
+    this.mainChart.timeScale().fitContent();
 
-    this.volumeSeries.setData(data.map((d: any) => ({
-      time: d.time,
-      value: d.volume,
-      color: d.close >= d.open ? 'rgba(63, 185, 80, 0.3)' : 'rgba(248, 81, 73, 0.3)'
-    })));
-
-    this.chart.timeScale().fitContent();
-
-    if (this.showIndicators) {
-      this.updateIndicators();
+    if (this.indicators().volume && this.volumeChartEl) {
+      this.renderVolumeChart(data);
+    }
+    if (this.indicators().rsi && this.rsiChartEl) {
+      this.renderRSIChart(data);
+    }
+    if (this.indicators().macd && this.macdChartEl) {
+      this.renderMACDChart(data);
     }
 
     const resizeObserver = new ResizeObserver(entries => {
-      if (this.chart) {
-        const { width } = entries[0].contentRect;
-        this.chart.applyOptions({ width });
-      }
+      entries.forEach(entry => {
+        const width = entry.contentRect.width;
+        this.charts.forEach(c => c?.applyOptions({ width }));
+      });
     });
-    resizeObserver.observe(container);
+    resizeObserver.observe(mainContainer);
+  }
+
+  private calculateSMA(data: number[], period: number): number[] {
+    const sma: number[] = [];
+    for (let i = 0; i < data.length; i++) {
+      if (i < period - 1) {
+        sma.push(data[i]);
+      } else {
+        let sum = 0;
+        for (let j = 0; j < period; j++) {
+          sum += data[i - j];
+        }
+        sma.push(sum / period);
+      }
+    }
+    return sma;
+  }
+
+  private calculateEMA(data: number[], period: number): number[] {
+    const ema: number[] = [];
+    const multiplier = 2 / (period + 1);
+    
+    let sum = 0;
+    for (let i = 0; i < period && i < data.length; i++) {
+      sum += data[i];
+    }
+    let prevEMA = sum / Math.min(period, data.length);
+    ema.push(prevEMA);
+    
+    for (let i = period; i < data.length; i++) {
+      const currentEMA = (data[i] - prevEMA) * multiplier + prevEMA;
+      ema.push(currentEMA);
+      prevEMA = currentEMA;
+    }
+    
+    return ema;
+  }
+
+  private calculateBollingerBands(data: any[]): void {
+    if (!this.indicators().bollingerBands || data.length < 20) return;
+
+    const closes = data.map(d => d.close);
+    const period = 20;
+    const stdDevMult = 2;
+
+    const sma = this.calculateSMA(closes, period);
+    
+    const bbData: any[] = [];
+    const bbUpper: any[] = [];
+    const bbLower: any[] = [];
+
+    for (let i = period - 1; i < data.length; i++) {
+      let sumSquares = 0;
+      for (let j = 0; j < period; j++) {
+        sumSquares += Math.pow(closes[i - j] - sma[i], 2);
+      }
+      const stdDev = Math.sqrt(sumSquares / period);
+      
+      bbData.push({ time: data[i].time, value: sma[i] });
+      bbUpper.push({ time: data[i].time, value: sma[i] + stdDevMult * stdDev });
+      bbLower.push({ time: data[i].time, value: sma[i] - stdDevMult * stdDev });
+    }
+
+    if (!this.bbSeries) {
+      this.bbSeries = this.mainChart.addLineSeries({
+        color: 'rgba(139, 92, 246, 0.3)',
+        lineWidth: 1,
+        crosshairMarkerVisible: false
+      });
+    }
+    this.bbSeries.setData(bbData);
+
+    if (!this.bbUpperSeries) {
+      this.bbUpperSeries = this.mainChart.addLineSeries({
+        color: 'rgba(139, 92, 246, 0.5)',
+        lineWidth: 1,
+        lineStyle: 2,
+        crosshairMarkerVisible: false
+      });
+    }
+    this.bbUpperSeries.setData(bbUpper);
+
+    if (!this.bbLowerSeries) {
+      this.bbLowerSeries = this.mainChart.addLineSeries({
+        color: 'rgba(139, 92, 246, 0.5)',
+        lineWidth: 1,
+        lineStyle: 2,
+        crosshairMarkerVisible: false
+      });
+    }
+    this.bbLowerSeries.setData(bbLower);
+  }
+
+  private calculateAndRenderMAs(data: any[]): void {
+    const closes = data.map(d => d.close);
+    const times = data.map(d => d.time);
+    const inds = this.indicators();
+
+    if (inds.ema20 && data.length >= 20) {
+      const ema20Data = this.calculateEMA(closes, 20);
+      const series = this.mainChart.addLineSeries({
+        color: '#22d3ee',
+        lineWidth: 1,
+        title: 'EMA20'
+      });
+      series.setData(times.map((t, i) => ({ time: t, value: ema20Data[i] || closes[i] })).slice(19));
+    }
+
+    if (inds.sma50 && data.length >= 50) {
+      const sma50Data = this.calculateSMA(closes, 50);
+      const series = this.mainChart.addLineSeries({
+        color: '#f59e0b',
+        lineWidth: 1,
+        title: 'SMA50'
+      });
+      series.setData(times.map((t, i) => ({ time: t, value: sma50Data[i] || closes[i] })).slice(49));
+    }
+
+    if (inds.sma200 && data.length >= 200) {
+      const sma200Data = this.calculateSMA(closes, 200);
+      const series = this.mainChart.addLineSeries({
+        color: '#8b5cf6',
+        lineWidth: 1,
+        title: 'SMA200'
+      });
+      series.setData(times.map((t, i) => ({ time: t, value: sma200Data[i] || closes[i] })).slice(199));
+    }
+  }
+
+  private renderVolumeChart(data: any[]): void {
+    const container = this.volumeChartEl.nativeElement;
+    this.volumeChart = this.createBaseChart(container, 100);
+
+    this.volumeSeries = this.volumeChart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume'
+    });
+    this.volumeChart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.1, bottom: 0 }
+    });
+    this.volumeSeries.setData(data.map(d => ({
+      time: d.time,
+      value: d.volume,
+      color: d.close >= d.open ? 'rgba(63, 185, 80, 0.4)' : 'rgba(248, 81, 73, 0.4)'
+    })));
+
+    const volumes = data.map(d => d.volume);
+    const volumeMa = this.calculateSMA(volumes, 20);
+    this.volumeMaSeries = this.volumeChart.addLineSeries({
+      color: '#60a5fa',
+      lineWidth: 1
+    });
+    this.volumeMaSeries.setData(data.map((d, i) => ({
+      time: d.time,
+      value: volumeMa[i] || volumes[i]
+    })));
+
+    this.volumeChart.timeScale().fitContent();
+  }
+
+  private renderRSIChart(data: any[]): void {
+    const container = this.rsiChartEl.nativeElement;
+    this.rsiChart = this.createBaseChart(container, 100);
+
+    const closes = data.map(d => d.close);
+    const periods = 14;
+    const rsiData: number[] = [];
+
+    for (let i = 0; i < closes.length; i++) {
+      if (i < periods) {
+        rsiData.push(50);
+      } else {
+        let gains = 0;
+        let losses = 0;
+        for (let j = 1; j <= periods; j++) {
+          const change = closes[i - j + 1] - closes[i - j];
+          if (change > 0) gains += change;
+          else losses -= change;
+        }
+        const avgGain = gains / periods;
+        const avgLoss = losses / periods;
+        if (avgLoss === 0) {
+          rsiData.push(100);
+        } else {
+          const rs = avgGain / avgLoss;
+          rsiData.push(100 - (100 / (1 + rs)));
+        }
+      }
+    }
+
+    const lastRSI = rsiData[rsiData.length - 1];
+    this.rsiValue.set(lastRSI);
+
+    const rsiSeries = this.rsiChart.addLineSeries({
+      color: '#ec4899',
+      lineWidth: 1
+    });
+    rsiSeries.setData(data.map((d, i) => ({ time: d.time, value: rsiData[i] })));
+
+    this.rsiChart.addLineSeries({
+      color: 'rgba(248, 81, 73, 0.3)',
+      lineWidth: 1,
+      lineStyle: 2
+    }).setData(data.map(d => ({ time: d.time, value: 70 })));
+
+    this.rsiChart.addLineSeries({
+      color: 'rgba(63, 185, 80, 0.3)',
+      lineWidth: 1,
+      lineStyle: 2
+    }).setData(data.map(d => ({ time: d.time, value: 30 })));
+
+    this.rsiChart.addLineSeries({
+      color: 'rgba(139, 92, 246, 0.2)',
+      lineWidth: 1,
+      lineStyle: 2
+    }).setData(data.map(d => ({ time: d.time, value: 50 })));
+
+    this.rsiChart.timeScale().fitContent();
+  }
+
+  private renderMACDChart(data: any[]): void {
+    const container = this.macdChartEl.nativeElement;
+    this.macdChart = this.createBaseChart(container, 100);
+
+    const closes = data.map(d => d.close);
+    
+    const ema12 = this.calculateEMA(closes, 12);
+    const ema26 = this.calculateEMA(closes, 26);
+    
+    const macdLine: number[] = [];
+    for (let i = 0; i < closes.length; i++) {
+      macdLine.push(ema12[i] - ema26[i]);
+    }
+    
+    const signalLine = this.calculateEMA(macdLine, 9);
+    
+    const histogram: number[] = [];
+    for (let i = 0; i < macdLine.length; i++) {
+      histogram.push(macdLine[i] - signalLine[i]);
+    }
+
+    const lastIdx = histogram.length - 1;
+    this.macdValue.set({
+      macd: macdLine[lastIdx] || 0,
+      signal: signalLine[lastIdx] || 0,
+      histogram: histogram[lastIdx] || 0
+    });
+
+    const macdSeries = this.macdChart.addLineSeries({
+      color: '#3b82f6',
+      lineWidth: 1
+    });
+    macdSeries.setData(data.map((d, i) => ({ time: d.time, value: macdLine[i] || 0 })).slice(25));
+
+    const signalSeries = this.macdChart.addLineSeries({
+      color: '#f97316',
+      lineWidth: 1
+    });
+    signalSeries.setData(data.map((d, i) => ({ time: d.time, value: signalLine[i] || 0 })).slice(33));
+
+    const histSeries = this.macdChart.addHistogramSeries({
+      color: '#22c55e'
+    });
+    histSeries.setData(data.map((d, i) => ({
+      time: d.time,
+      value: histogram[i] || 0,
+      color: (histogram[i] || 0) >= 0 ? 'rgba(34, 197, 94, 0.6)' : 'rgba(248, 81, 73, 0.6)'
+    })).slice(33));
+
+    this.macdChart.addLineSeries({
+      color: 'rgba(139, 92, 246, 0.3)',
+      lineWidth: 1,
+      lineStyle: 2
+    }).setData(data.map(d => ({ time: d.time, value: 0 })));
+
+    this.macdChart.timeScale().fitContent();
+  }
+
+  private updateCharts(): void {
+    if (!this.mainChart) return;
+
+    if (this.indicators().volume && !this.volumeChart && this.volumeChartEl) {
+      this.renderVolumeChart(this.charts[0]?.getData ? [] : []);
+    }
+    if (this.indicators().rsi && !this.rsiChart && this.rsiChartEl) {
+      this.renderRSIChart([]);
+    }
+    if (this.indicators().macd && !this.macdChart && this.macdChartEl) {
+      this.renderMACDChart([]);
+    }
   }
 
   ngOnDestroy(): void {
-    if (this.chart) {
-      this.chart.remove();
-      this.chart = null;
-    }
+    this.destroyCharts();
   }
 }

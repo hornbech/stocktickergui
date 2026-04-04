@@ -35,7 +35,9 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 
 - **Real-time stock quotes** with 30-second auto-refresh (pauses when the browser tab is hidden)
 - **Ticker search** with autocomplete via Yahoo Finance (supports equities and ETFs)
-- **Interactive candlestick charts** powered by TradingView Lightweight Charts with selectable ranges: 1D, 5D (default), 1M, 3M, 1Y, 5Y with optional MA (Moving Average) indicators
+- **Interactive candlestick charts** powered by TradingView Lightweight Charts with selectable ranges: 1D, 5D (default), 1M, 3M, 1Y, 5Y
+- **Technical indicators** -- EMA(20), SMA(50), SMA(200), Bollinger Bands, RSI(14), MACD, Volume with MA
+- **Indicator panels** -- Main chart shows candles with MAs and Bollinger Bands; sub-panels for RSI, MACD, and Volume
 - **Volume overlay** displayed alongside price data on all chart intervals
 - **Pre-market and after-hours** prices shown when the market is in extended hours
 - **Market status indicator** per ticker (Pre-Market, Open, After Hours, Closed)
@@ -43,7 +45,7 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 - **GAK/GAV portfolio tracking** -- enter your average purchase price (GAK) and number of shares to see unrealized P&L; works without GAK too, showing just the current value
 - **Multi-currency display** -- each stock shows prices in its native currency (USD, GBP, EUR, DKK, etc.) with a currency badge on the card
 - **Currency dropdown** for portfolio totals -- choose from USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, or AUD; the summary table converts all holdings to your chosen display currency using live exchange rates
-- **Technical indicators** on each stock card -- Beta, Dividend Yield, EPS (TTM & Forward), MA50, MA200, Analyst Target Price, Analyst Rating
+- **Stock card indicators** -- Beta, Dividend Yield, EPS, Analyst Rating
 - **Sub-unit currency support** -- GBp (pence) is automatically converted to GBP for display; same for ILA (agorot) to ILS
 - **File-based persistence** -- portfolio config is stored in `config/portfolio.json`, mounted as a Docker volume so data survives container restarts
 - **Dark theme** with responsive layout that works on desktop and tablet

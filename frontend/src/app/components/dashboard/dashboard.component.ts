@@ -11,6 +11,7 @@ import { StockChartComponent } from '../stock-chart/stock-chart.component';
 import { HoldingsSummaryComponent } from '../holdings-summary/holdings-summary.component';
 import { PensionSummaryComponent } from '../pension-summary/pension-summary.component';
 import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.component';
+import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -22,7 +23,8 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
     StockChartComponent,
     HoldingsSummaryComponent,
     PensionSummaryComponent,
-    CurrencyToggleComponent
+    CurrencyToggleComponent,
+    NewsTickerComponent
   ],
   template: `
     <header class="app-header">
@@ -139,6 +141,7 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
         </div>
 
         @if (overviewSymbols().length > 0) {
+          <app-news-ticker [symbols]="allSymbols()"></app-news-ticker>
           <div class="overview-chart">
             <div class="chart-header">
               <h4>Portfolio Performance</h4>
@@ -191,6 +194,7 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
               </app-stock-card>
             }
           </div>
+          <app-news-ticker [symbols]="portfolioService.symbols()"></app-news-ticker>
         }
 
         @if (!loading() && quotesArray().length === 0) {
@@ -454,6 +458,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const pension = this.portfolioService.pensionEntries();
     const allSymbols = [...holdings, ...pension].map(e => e.symbol);
     return [...new Set(allSymbols)];
+  });
+
+  allSymbols = computed(() => {
+    const watchlist = this.portfolioService.symbols();
+    const holdings = this.portfolioService.entries().map(e => e.symbol);
+    const pension = this.portfolioService.pensionEntries().map(e => e.symbol);
+    return [...new Set([...watchlist, ...holdings, ...pension])];
   });
 
   totalHoldingsValue = computed(() => {

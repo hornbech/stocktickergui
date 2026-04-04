@@ -6,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const app = express();
+app.enable('trust proxy');
 app.use(express.json());
 const PORT = 3000;
 
@@ -101,6 +102,24 @@ const swaggerSpec = {
             content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/ChartDataPoint' } } } }
           },
           '500': { description: 'Yahoo Finance API error' }
+        }
+      }
+    },
+    '/news': {
+      get: {
+        tags: ['Stock Data'],
+        summary: 'Get news headlines',
+        description: 'Fetch recent news headlines from Yahoo Finance RSS feeds for one or more symbols. Results are deduplicated by GUID and sorted newest-first. Cached for 1 minute per symbol.',
+        parameters: [
+          { name: 'symbols', in: 'query', required: true, description: 'Comma-separated ticker symbols', schema: { type: 'string', example: 'AAPL,MSFT' } },
+          { name: 'limit', in: 'query', required: false, description: 'Maximum number of news items to return', schema: { type: 'integer', default: 20, example: 30 } }
+        ],
+        responses: {
+          '200': {
+            description: 'Array of news items sorted by date descending',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/NewsItem' } } } }
+          },
+          '500': { description: 'RSS feed fetch error' }
         }
       }
     },
@@ -346,6 +365,18 @@ const swaggerSpec = {
         properties: {
           holdings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Pension portfolio positions' }
         }
+      },
+      NewsItem: {
+        type: 'object',
+        description: 'A single news headline from Yahoo Finance RSS',
+        properties: {
+          title: { type: 'string', example: 'Apple Reports Record Q1 Revenue' },
+          link: { type: 'string', example: 'https://finance.yahoo.com/news/...' },
+          pubDate: { type: 'string', example: 'Fri, 04 Apr 2026 14:30:00 +0000' },
+          source: { type: 'string', example: 'Reuters' },
+          guid: { type: 'string', example: 'https://finance.yahoo.com/news/...' },
+          symbols: { type: 'array', items: { type: 'string' }, example: ['AAPL'] }
+        }
       }
     }
   }
@@ -362,6 +393,9 @@ const QUOTE_TTL = 10_000; // 10 seconds
 
 let currencyCache = { rate: null, timestamp: 0 };
 const CURRENCY_TTL = 300_000; // 5 minutes
+
+const newsCache = new Map();
+const NEWS_TTL = 60_000; // 1 minute
 
 // --- Helpers ---
 function getCachedQuote(symbol) {
@@ -471,6 +505,120 @@ app.get('/api/chart/:symbol', async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error('Chart error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get news for one or more symbols
+app.get('/api/news', async (req, res) => {
+  try {
+    const symbols = req.query.symbols ? req.query.symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
+    
+    if (symbols.length === 0) {
+      return res.json([]);
+    }
+
+    async function fetchNewsForSymbol(symbol) {
+      const cacheKey = `news_${symbol}`;
+      const cached = newsCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < NEWS_TTL) {
+        return cached.data;
+      }
+
+      try {
+        const rssUrl = `https://finance.yahoo.com/rss/finance?symbols=${encodeURIComponent(symbol)}`;
+        const response = await fetch(rssUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/rss+xml, application/xml, text/xml'
+          }
+        });
+
+        if (!response.ok) {
+          return [];
+        }
+
+        const xml = await response.text();
+        const items = parseRSSItems(xml);
+        return items.map(item => ({
+          ...item,
+          symbols: [symbol]
+        }));
+      } catch (err) {
+        console.error(`News fetch error for ${symbol}:`, err.message);
+        return [];
+      }
+    }
+
+    function parseRSSItems(xml) {
+      const items = [];
+      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+      let match;
+
+      while ((match = itemRegex.exec(xml)) !== null) {
+        const itemXml = match[1];
+        
+        const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/.exec(itemXml);
+        const linkMatch = /<link>([\s\S]*?)<\/link>/.exec(itemXml);
+        const pubDateMatch = /<pubDate>([\s\S]*?)<\/pubDate>/.exec(itemXml);
+        const sourceMatch = /<source[^>]*url="([^"]*)"[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/source>/.exec(itemXml) ||
+                            /<source[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/source>/.exec(itemXml);
+        const guidMatch = /<guid[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/guid>/.exec(itemXml);
+
+        if (titleMatch) {
+          let title = titleMatch[1].trim();
+          title = title.replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim();
+
+          let source = 'Yahoo Finance';
+          if (sourceMatch) {
+            source = (sourceMatch[2] || sourceMatch[1] || 'Yahoo Finance').trim();
+            source = source.replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim();
+          }
+
+          let link = '';
+          if (linkMatch) {
+            link = linkMatch[1].trim();
+          }
+          if (!link && guidMatch) {
+            link = guidMatch[1].replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim();
+          }
+
+          items.push({
+            title,
+            link,
+            pubDate: pubDateMatch ? pubDateMatch[1].trim() : '',
+            source,
+            guid: guidMatch ? guidMatch[1].replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim() : ''
+          });
+        }
+      }
+
+      return items;
+    }
+
+    const allNews = [];
+    for (const symbol of symbols) {
+      const news = await fetchNewsForSymbol(symbol);
+      allNews.push(...news);
+    }
+
+    allNews.sort((a, b) => {
+      const dateA = new Date(a.pubDate);
+      const dateB = new Date(b.pubDate);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    const seen = new Set();
+    const uniqueNews = allNews.filter(item => {
+      if (seen.has(item.guid)) return false;
+      seen.add(item.guid);
+      return true;
+    });
+
+    const limit = parseInt(req.query.limit) || 20;
+    res.json(uniqueNews.slice(0, limit));
+  } catch (err) {
+    console.error('News error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

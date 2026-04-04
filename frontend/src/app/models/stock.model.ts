@@ -64,3 +64,12 @@ export const CHART_RANGES: ChartRange[] = [
   { label: '1Y', range: '1y', interval: '1wk' },
   { label: '5Y', range: '5y', interval: '1mo' }
 ];
+
+export interface NewsItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
+  guid: string;
+  symbols?: string[];
+}

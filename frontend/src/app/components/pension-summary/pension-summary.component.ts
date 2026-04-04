@@ -7,6 +7,9 @@ import { PortfolioService } from '../../services/portfolio.service';
 import { CurrencyService } from '../../services/currency.service';
 import { StockService } from '../../services/stock.service';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
+import { StockCardComponent } from '../stock-card/stock-card.component';
+import { StockChartComponent } from '../stock-chart/stock-chart.component';
+import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
 
 interface PensionItem {
   entry: PortfolioEntry;
@@ -16,7 +19,7 @@ interface PensionItem {
 @Component({
   selector: 'app-pension-summary',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, StockCardComponent, StockChartComponent, NewsTickerComponent],
   template: `
     <div class="pension-summary">
       <div class="summary-header">
@@ -81,6 +84,24 @@ interface PensionItem {
       }
 
       @if (pensionItems().length > 0) {
+        <app-news-ticker [symbols]="pensionSymbols()"></app-news-ticker>
+        <div class="cards-grid">
+          @for (item of pensionItems(); track item.entry.symbol) {
+            @if (item.quote) {
+              <app-stock-card
+                [quote]="item.quote"
+                [selected]="selectedSymbol() === item.entry.symbol"
+                (cardClicked)="onSymbolSelected($event)"
+                (removed)="removePension($event)">
+              </app-stock-card>
+            }
+          }
+        </div>
+
+        @if (selectedSymbol() && selectedQuote()) {
+          <app-stock-chart [symbol]="selectedSymbol()"></app-stock-chart>
+        }
+
         <div class="summary-table">
           <div class="table-header">
             <span>Ticker</span>
@@ -91,7 +112,7 @@ interface PensionItem {
             <span></span>
           </div>
           @for (item of pensionItems(); track item.entry.symbol) {
-            <div class="table-row">
+            <div class="table-row" [class.selected]="selectedSymbol() === item.entry.symbol" (click)="onSymbolSelected(item.entry.symbol)">
               <span class="ticker">
                 <span class="symbol">{{ item.entry.symbol }}</span>
                 @if (item.quote) {
@@ -285,6 +306,12 @@ interface PensionItem {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      padding: 16px 20px;
+    }
     .summary-table {
       font-size: 13px;
     }
@@ -305,6 +332,13 @@ interface PensionItem {
     }
     .table-row {
       border-bottom: 1px solid var(--border-light);
+      cursor: pointer;
+    }
+    .table-row:hover {
+      background: var(--bg-card-hover);
+    }
+    .table-row.selected {
+      background: var(--blue-bg);
     }
     .table-row:last-of-type {
       border-bottom: none;
@@ -374,6 +408,17 @@ export class PensionSummaryComponent implements OnInit {
   Math = Math;
   private searchSubject = new Subject<string>();
 
+  selectedSymbol = signal<string>('');
+
+  selectedQuote = computed((): StockQuote | undefined => {
+    const sym = this.selectedSymbol();
+    return sym ? this.quotes.get(sym) : undefined;
+  });
+
+  pensionSymbols = computed((): string[] => {
+    return this.portfolioService.pensionEntries().map(e => e.symbol);
+  });
+
   pensionItems = computed((): PensionItem[] => {
     return this.portfolioService.pensionEntries().map(entry => ({
       entry,
@@ -420,6 +465,14 @@ export class PensionSummaryComponent implements OnInit {
 
   onSearch(value: string): void {
     this.searchSubject.next(value);
+  }
+
+  onSymbolSelected(symbol: string): void {
+    if (this.selectedSymbol() === symbol) {
+      this.selectedSymbol.set('');
+    } else {
+      this.selectedSymbol.set(symbol);
+    }
   }
 
   selectSearchResult(result: SearchResult): void {

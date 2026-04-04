@@ -1,11 +1,12 @@
 import { Component, Input, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StockQuote } from '../../models/stock.model';
+import { StockQuote, SearchResult } from '../../models/stock.model';
 import { PortfolioEntry } from '../../models/portfolio.model';
 import { PortfolioService } from '../../services/portfolio.service';
 import { CurrencyService } from '../../services/currency.service';
 import { StockService } from '../../services/stock.service';
+import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 
 interface HoldingItem {
   entry: PortfolioEntry;
@@ -27,7 +28,7 @@ interface HoldingItem {
           <h3>Holdings</h3>
         </div>
         <div class="header-actions">
-          <button class="add-btn" (click)="showAddForm = !showAddForm">
+          <button class="add-btn" (click)="toggleAddForm()">
             <svg viewBox="0 0 16 16" width="14" height="14">
               <path fill="currentColor" d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z"/>
             </svg>
@@ -38,11 +39,29 @@ interface HoldingItem {
 
       @if (showAddForm) {
         <div class="add-form fade-in">
-          <input 
-            type="text" 
-            [(ngModel)]="newSymbol" 
-            placeholder="Ticker (e.g., AAPL, MSFT)"
-            (keyup.enter)="addPosition()">
+          <div class="search-input-group">
+            <svg class="search-icon" viewBox="0 0 16 16" width="14" height="14">
+              <path fill="currentColor" d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 1 1-1.06 1.06l-3.04-3.04ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/>
+            </svg>
+            <input 
+              type="text" 
+              [(ngModel)]="newSymbol" 
+              (ngModelChange)="onSearch($event)"
+              (keyup.enter)="addPosition()"
+              (focus)="showSearchResults = true"
+              placeholder="Search ticker or company name..."
+              class="search-input">
+            @if (showSearchResults && searchResults.length > 0) {
+              <div class="search-results">
+                @for (r of searchResults; track r.symbol) {
+                  <button class="result-item" (mousedown)="selectSearchResult(r)">
+                    <span class="result-symbol">{{ r.symbol }}</span>
+                    <span class="result-name">{{ r.name }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
           <input 
             type="number" 
             [(ngModel)]="newShares" 
@@ -56,6 +75,7 @@ interface HoldingItem {
             min="0" 
             step="0.01">
           <button (click)="addPosition()" [disabled]="!newSymbol">Add</button>
+          <button class="cancel-btn" (click)="toggleAddForm()">Cancel</button>
         </div>
       }
 
@@ -164,9 +184,11 @@ interface HoldingItem {
       padding: 16px 20px;
       background: var(--bg-input);
       border-bottom: 1px solid var(--border-light);
+      flex-wrap: wrap;
     }
     .add-form input {
       flex: 1;
+      min-width: 120px;
       padding: 8px 12px;
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -195,6 +217,68 @@ interface HoldingItem {
     .add-form button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+    .cancel-btn {
+      background: var(--bg-secondary) !important;
+      color: var(--text-secondary) !important;
+      border: 1px solid var(--border) !important;
+    }
+    .search-input-group {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+    .search-input-group .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+    .search-input-group .search-input {
+      width: 100%;
+      padding-left: 32px;
+    }
+    .search-results {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .search-results .result-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .search-results .result-item:hover {
+      background: var(--bg-card-hover);
+    }
+    .search-results .result-symbol {
+      font-weight: 600;
+      color: var(--blue);
+      min-width: 60px;
+    }
+    .search-results .result-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .summary-table {
       font-size: 13px;
@@ -274,7 +358,10 @@ export class HoldingsSummaryComponent {
   newSymbol = '';
   newShares = 0;
   newAvgPrice = 0;
+  searchResults: SearchResult[] = [];
+  showSearchResults = false;
   Math = Math;
+  private searchSubject = new Subject<string>();
 
   holdingItems = computed((): HoldingItem[] => {
     return this.portfolioService.entries().map(entry => ({
@@ -287,7 +374,41 @@ export class HoldingsSummaryComponent {
     public currencyService: CurrencyService,
     private portfolioService: PortfolioService,
     private stockService: StockService
-  ) {}
+  ) {
+    this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(q => q.length >= 1 ? this.stockService.search(q) : of([]))
+    ).subscribe(results => {
+      this.searchResults = results;
+      this.showSearchResults = results.length > 0;
+    });
+  }
+
+  toggleAddForm(): void {
+    this.showAddForm = !this.showAddForm;
+    if (!this.showAddForm) {
+      this.resetForm();
+    }
+  }
+
+  onSearch(value: string): void {
+    this.searchSubject.next(value);
+  }
+
+  selectSearchResult(result: SearchResult): void {
+    this.newSymbol = result.symbol;
+    this.searchResults = [];
+    this.showSearchResults = false;
+  }
+
+  resetForm(): void {
+    this.newSymbol = '';
+    this.newShares = 0;
+    this.newAvgPrice = 0;
+    this.searchResults = [];
+    this.showSearchResults = false;
+  }
 
   addPosition(): void {
     if (!this.newSymbol) return;
@@ -300,10 +421,7 @@ export class HoldingsSummaryComponent {
       }
       
       this.portfolioService.updateHolding(upper, this.newShares, this.newAvgPrice);
-      
-      this.newSymbol = '';
-      this.newShares = 0;
-      this.newAvgPrice = 0;
+      this.resetForm();
       this.showAddForm = false;
     });
   }

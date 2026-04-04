@@ -45,41 +45,47 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
     <main class="main-content">
       <div class="toolbar">
         <app-ticker-input (tickerAdded)="onTickerAdded($event)"></app-ticker-input>
-        @if (quotes().size > 0) {
-          <span class="ticker-count">{{ quotes().size }} ticker{{ quotes().size !== 1 ? 's' : '' }}</span>
+        @if (activeView() === 'watchlist' && quotes().size > 0) {
+          <span class="ticker-count">{{ quotes().size }} watching</span>
+        }
+        @if (activeView() === 'holdings' && holdingsSymbols().length > 0) {
+          <span class="ticker-count">{{ holdingsSymbols().length }} holding{{ holdingsSymbols().length !== 1 ? 's' : '' }}</span>
         }
       </div>
 
-      @if (portfolioService.entries().length > 0) {
+      @if (activeView() === 'watchlist' && portfolioService.entries().length > 0) {
         <app-portfolio-summary
           [entries]="portfolioService.entries()"
           [quotes]="quotes()">
         </app-portfolio-summary>
       }
 
-      @if (portfolioService.pensionEntries().length > 0 || showPensionTab()) {
-        <app-pension-summary [quotes]="quotes()"></app-pension-summary>
-      }
-
       <div class="view-toggle">
         <button 
-          [class.active]="!showPensionTab()" 
-          (click)="showPensionTab.set(false)">
+          [class.active]="activeView() === 'watchlist'" 
+          (click)="setActiveView('watchlist')">
           Watchlist
         </button>
         <button 
-          [class.active]="showPensionTab()" 
-          (click)="showPensionTab.set(true)">
+          [class.active]="activeView() === 'holdings'" 
+          (click)="setActiveView('holdings')">
+          Holdings
+        </button>
+        <button 
+          [class.active]="activeView() === 'pension'" 
+          (click)="setActiveView('pension')">
           Pension
         </button>
       </div>
 
-      @if (selectedSymbol()) {
+      @if (selectedSymbol() && activeView() !== 'pension') {
         <app-stock-chart [symbol]="selectedSymbol()"></app-stock-chart>
       }
 
-      @if (!showPensionTab()) {
-        @if (loading() && quotes().size === 0) {
+      @if (activeView() === 'pension') {
+        <app-pension-summary [quotes]="quotes()"></app-pension-summary>
+      } @else {
+        @if (loading() && currentViewQuotes().length === 0) {
           <div class="loading-grid">
             @for (i of [1,2,3]; track i) {
               <div class="skeleton-card">
@@ -91,9 +97,9 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
           </div>
         }
 
-        @if (quotes().size > 0) {
+        @if (currentViewQuotes().length > 0) {
           <div class="cards-grid">
-            @for (quote of quotesArray(); track quote.symbol) {
+            @for (quote of currentViewQuotes(); track quote.symbol) {
               <app-stock-card
                 [quote]="quote"
                 [selected]="selectedSymbol() === quote.symbol"
@@ -104,13 +110,13 @@ import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.comp
           </div>
         }
 
-        @if (!loading() && quotes().size === 0) {
+        @if (!loading() && currentViewQuotes().length === 0) {
           <div class="empty-state">
             <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
-            <h2>No tickers added</h2>
-            <p>Search for a stock ticker above to get started</p>
+            <h2>No {{ activeView() === 'holdings' ? 'holdings' : 'tickers' }} added</h2>
+            <p>{{ activeView() === 'holdings' ? 'Add holdings from your watchlist cards below' : 'Search for a stock ticker above to get started' }}</p>
           </div>
         }
       }
@@ -258,13 +264,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedSymbol = signal<string>('');
   loading = signal(false);
   lastUpdated = signal<string>('');
-  showPensionTab = signal(false);
+  activeView = signal<'watchlist' | 'holdings' | 'pension'>('watchlist');
 
   quotesArray = computed(() => {
     const symbols = this.portfolioService.symbols();
     const map = this.quotes();
     return symbols.map(s => map.get(s)).filter((q): q is StockQuote => !!q);
   });
+
+  holdingsSymbols = computed(() => {
+    return this.portfolioService.entries().map(e => e.symbol);
+  });
+
+  currentViewQuotes = computed(() => {
+    const map = this.quotes();
+    if (this.activeView() === 'watchlist') {
+      return this.quotesArray();
+    } else if (this.activeView() === 'holdings') {
+      return this.holdingsSymbols().map(s => map.get(s)).filter((q): q is StockQuote => !!q);
+    }
+    return [];
+  });
+
+  setActiveView(view: 'watchlist' | 'holdings' | 'pension'): void {
+    this.activeView.set(view);
+    if (view === 'pension') {
+      this.selectedSymbol.set('');
+    }
+  }
 
   private refreshSub?: Subscription;
 

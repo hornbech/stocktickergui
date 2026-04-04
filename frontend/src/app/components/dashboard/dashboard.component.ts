@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Subscription, interval } from 'rxjs';
 import { StockService } from '../../services/stock.service';
 import { PortfolioService } from '../../services/portfolio.service';
@@ -29,6 +30,11 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
   template: `
     <header class="app-header">
       <div class="header-left">
+        <button class="info-btn" (click)="showInfoPanel.set(!showInfoPanel())" title="About">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </button>
         <h1 class="app-title">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -43,6 +49,47 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
         <app-currency-toggle></app-currency-toggle>
       </div>
     </header>
+
+    @if (showInfoPanel()) {
+      <div class="info-backdrop" (click)="showInfoPanel.set(false)"></div>
+      <div class="info-panel fade-in">
+        <div class="info-panel-header">
+          <h3>About Stock Overview</h3>
+          <button class="info-close" (click)="showInfoPanel.set(false)">
+            <svg viewBox="0 0 16 16" width="14" height="14">
+              <path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.749.749 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.749.749 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="info-content">
+          <p class="info-description">A real-time stock ticker dashboard for tracking equities and ETFs across global markets.</p>
+
+          <div class="info-section">
+            <span class="info-label">Created by</span>
+            <span>Jacob Hornbech</span>
+          </div>
+          <div class="info-section">
+            <span class="info-label">Built with</span>
+            <span>Angular 19, Express.js & Claude AI</span>
+          </div>
+          <div class="info-section">
+            <span class="info-label">Server started</span>
+            <span>{{ serverStartedAt() || '...' }}</span>
+          </div>
+
+          <div class="info-links">
+            <a href="https://github.com/hornbech/stocktickergui" target="_blank" rel="noopener noreferrer" class="info-link-btn">
+              <svg viewBox="0 0 16 16" width="16" height="16">
+                <path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/>
+              </svg>
+              View on GitHub
+            </a>
+          </div>
+
+          <p class="info-footer">Open source — feature requests and merge requests welcome!</p>
+        </div>
+      </div>
+    }
 
     <main class="main-content">
       <div class="view-toggle">
@@ -246,6 +293,116 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
     .last-updated {
       font-size: 12px;
       color: var(--text-muted);
+    }
+    .info-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      transition: all var(--transition);
+    }
+    .info-btn:hover {
+      color: var(--blue);
+      background: var(--blue-bg);
+    }
+    .info-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+    }
+    .info-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 340px;
+      max-width: 90vw;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-lg);
+    }
+    .info-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .info-panel-header h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .info-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+    }
+    .info-close:hover {
+      background: var(--red-bg);
+      color: var(--red);
+    }
+    .info-content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .info-description {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .info-section {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 13px;
+    }
+    .info-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .info-links {
+      padding-top: 4px;
+    }
+    .info-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all var(--transition);
+    }
+    .info-link-btn:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    .info-footer {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-style: italic;
     }
     .header-right {
       display: flex;
@@ -496,6 +653,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loading = signal(false);
   lastUpdated = signal<string>('');
   activeView = signal<'overview' | 'watchlist' | 'holdings' | 'pension'>('overview');
+  showInfoPanel = signal(false);
+  serverStartedAt = signal<string>('');
   Math = Math;
 
   watchlistQuotes = computed(() => {
@@ -614,7 +773,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     private stockService: StockService,
     public portfolioService: PortfolioService,
-    public currencyService: CurrencyService
+    public currencyService: CurrencyService,
+    private http: HttpClient
   ) {
     effect(() => {
       if (this.portfolioService.loaded() && !this.initialized) {
@@ -633,6 +793,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (document.visibilityState === 'visible') {
         this.fetchAllQuotes();
         this.currencyService.fetchRates();
+      }
+    });
+    this.http.get<{ startedAt: string }>('/api/health').subscribe({
+      next: (res) => {
+        if (res.startedAt) {
+          this.serverStartedAt.set(new Date(res.startedAt).toLocaleString());
+        }
       }
     });
   }

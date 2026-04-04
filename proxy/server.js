@@ -492,9 +492,11 @@ function setCachedQuote(symbol, data) {
 
 // --- Routes ---
 
+const SERVER_START_TIME = new Date().toISOString();
+
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', startedAt: SERVER_START_TIME });
 });
 
 // Get quotes for one or more symbols (comma-separated)

@@ -35,7 +35,7 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 
 - **Real-time stock quotes** with 30-second auto-refresh (pauses when the browser tab is hidden)
 - **Ticker search** with autocomplete via Yahoo Finance (supports equities and ETFs)
-- **Interactive candlestick charts** powered by TradingView Lightweight Charts with selectable ranges: 1D, 5D, 1M, 3M, 1Y, 5Y
+- **Interactive candlestick charts** powered by TradingView Lightweight Charts with selectable ranges: 1D, 5D (default), 1M, 3M, 1Y, 5Y with optional MA (Moving Average) indicators
 - **Volume overlay** displayed alongside price data on all chart intervals
 - **Pre-market and after-hours** prices shown when the market is in extended hours
 - **Market status indicator** per ticker (Pre-Market, Open, After Hours, Closed)

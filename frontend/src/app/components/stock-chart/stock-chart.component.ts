@@ -1,5 +1,6 @@
-import { Component, Input, OnChanges, OnDestroy, ElementRef, ViewChild, SimpleChanges } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, ElementRef, ViewChild, SimpleChanges, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { StockService } from '../../services/stock.service';
 import { CHART_RANGES, ChartRange } from '../../models/stock.model';
 
@@ -8,19 +9,25 @@ declare const LightweightCharts: any;
 @Component({
   selector: 'app-stock-chart',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="chart-container">
       <div class="chart-header">
         <h3>{{ symbol }}</h3>
-        <div class="range-buttons">
-          @for (r of ranges; track r.label) {
-            <button
-              [class.active]="activeRange.label === r.label"
-              (click)="changeRange(r)">
-              {{ r.label }}
-            </button>
-          }
+        <div class="chart-controls">
+          <div class="range-buttons">
+            @for (r of ranges; track r.label) {
+              <button
+                [class.active]="activeRange.label === r.label"
+                (click)="changeRange(r)">
+                {{ r.label }}
+              </button>
+            }
+          </div>
+          <label class="indicator-toggle">
+            <input type="checkbox" [(ngModel)]="showIndicators" (change)="toggleIndicators()">
+            <span>MA</span>
+          </label>
         </div>
       </div>
       <div #chartEl class="chart-area"></div>
@@ -47,10 +54,17 @@ declare const LightweightCharts: any;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .chart-header h3 {
       font-size: 16px;
       font-weight: 600;
+    }
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
     .range-buttons {
       display: flex;
@@ -75,6 +89,21 @@ declare const LightweightCharts: any;
       background: var(--blue);
       border-color: var(--blue);
       color: #fff;
+    }
+    .indicator-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .indicator-toggle input {
+      cursor: pointer;
+      accent-color: var(--blue);
+    }
+    .indicator-toggle span {
+      font-weight: 500;
     }
     .chart-area {
       height: 400px;
@@ -112,13 +141,17 @@ export class StockChartComponent implements OnChanges, OnDestroy {
   @ViewChild('chartEl', { static: true }) chartEl!: ElementRef;
 
   ranges = CHART_RANGES;
-  activeRange: ChartRange = CHART_RANGES[2]; // default 1M
+  activeRange: ChartRange = CHART_RANGES[1]; // default 5D
+  showIndicators = false;
   loading = false;
   error = false;
 
   private chart: any = null;
   private candleSeries: any = null;
   private volumeSeries: any = null;
+  private ma50Series: any = null;
+  private ma200Series: any = null;
+  private chartData: any[] = [];
 
   constructor(private stockService: StockService) {}
 
@@ -131,6 +164,64 @@ export class StockChartComponent implements OnChanges, OnDestroy {
   changeRange(range: ChartRange): void {
     this.activeRange = range;
     this.loadChart();
+  }
+
+  toggleIndicators(): void {
+    if (this.chart && this.chartData.length > 0) {
+      this.updateIndicators();
+    }
+  }
+
+  private calculateMA(data: any[], period: number): { time: number; value: number }[] {
+    const ma: { time: number; value: number }[] = [];
+    for (let i = period - 1; i < data.length; i++) {
+      let sum = 0;
+      for (let j = 0; j < period; j++) {
+        sum += data[i - j].close;
+      }
+      ma.push({
+        time: data[i].time,
+        value: sum / period
+      });
+    }
+    return ma;
+  }
+
+  private updateIndicators(): void {
+    if (!this.chart) return;
+
+    if (this.showIndicators) {
+      if (!this.ma50Series) {
+        this.ma50Series = this.chart.addLineSeries({
+          color: '#f59e0b',
+          lineWidth: 1,
+          title: 'MA50'
+        });
+        const ma50Data = this.calculateMA(this.chartData, 50);
+        if (ma50Data.length > 0) {
+          this.ma50Series.setData(ma50Data);
+        }
+      }
+
+      if (!this.ma200Series) {
+        this.ma200Series = this.chart.addLineSeries({
+          color: '#8b5cf6',
+          lineWidth: 1,
+          title: 'MA200'
+        });
+        const ma200Data = this.calculateMA(this.chartData, 200);
+        if (ma200Data.length > 0) {
+          this.ma200Series.setData(ma200Data);
+        }
+      }
+    } else {
+      if (this.ma50Series) {
+        this.ma50Series.setData([]);
+      }
+      if (this.ma200Series) {
+        this.ma200Series.setData([]);
+      }
+    }
   }
 
   private loadChart(): void {
@@ -147,6 +238,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
             this.error = true;
             return;
           }
+          this.chartData = data;
           this.renderChart(data);
         },
         error: () => {
@@ -159,6 +251,9 @@ export class StockChartComponent implements OnChanges, OnDestroy {
   private renderChart(data: any[]): void {
     if (this.chart) {
       this.chart.remove();
+      this.chart = null;
+      this.ma50Series = null;
+      this.ma200Series = null;
     }
 
     const container = this.chartEl.nativeElement;
@@ -225,7 +320,10 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
     this.chart.timeScale().fitContent();
 
-    // Handle resize
+    if (this.showIndicators) {
+      this.updateIndicators();
+    }
+
     const resizeObserver = new ResizeObserver(entries => {
       if (this.chart) {
         const { width } = entries[0].contentRect;

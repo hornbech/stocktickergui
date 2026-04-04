@@ -35,7 +35,9 @@ export class CurrencyService {
   setCurrency(c: DisplayCurrency): void {
     this.displayCurrency.set(c);
     this.http.get<any>('/api/portfolio').subscribe(config => {
-      config.currency = c;
+      if (config.portfolios?.default) {
+        config.portfolios.default.currency = c;
+      }
       this.http.put('/api/portfolio', config).subscribe();
     });
   }

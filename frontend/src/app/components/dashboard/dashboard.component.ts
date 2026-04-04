@@ -551,6 +551,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private refreshSub?: Subscription;
+  private initialized = false;
 
   constructor(
     private stockService: StockService,
@@ -558,7 +559,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     public currencyService: CurrencyService
   ) {
     effect(() => {
-      if (this.portfolioService.loaded()) {
+      if (this.portfolioService.loaded() && !this.initialized) {
+        this.initialized = true;
         this.currencyService.initCurrency(this.portfolioService.initialCurrency());
         this.fetchAllQuotes();
         if (this.overviewSymbols().length > 0 && !this.selectedOverviewSymbol()) {

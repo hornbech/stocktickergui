@@ -13,6 +13,7 @@ import { HoldingsSummaryComponent } from '../holdings-summary/holdings-summary.c
 import { PensionSummaryComponent } from '../pension-summary/pension-summary.component';
 import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.component';
 import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
+import { StatsService } from '../../services/stats.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -75,6 +76,18 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
           <div class="info-section">
             <span class="info-label">Server started</span>
             <span>{{ serverStartedAt() || '...' }}</span>
+          </div>
+
+          <div class="info-section">
+            <span class="info-label">Total visitors</span>
+            <span>{{ statsService.totalVisitors() | number }}</span>
+          </div>
+          <div class="info-section">
+            <span class="info-label">Currently online</span>
+            <span class="online-indicator">
+              <span class="online-dot"></span>
+              {{ statsService.onlineUsers() }}
+            </span>
           </div>
 
           <div class="info-links">
@@ -398,6 +411,23 @@ import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
     .info-link-btn:hover {
       border-color: var(--blue);
       color: var(--blue);
+    }
+    .online-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .online-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
     .info-footer {
       font-size: 12px;
@@ -774,7 +804,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private stockService: StockService,
     public portfolioService: PortfolioService,
     public currencyService: CurrencyService,
-    private http: HttpClient
+    private http: HttpClient,
+    public statsService: StatsService
   ) {
     effect(() => {
       if (this.portfolioService.loaded() && !this.initialized) {

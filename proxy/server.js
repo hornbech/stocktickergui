@@ -12,6 +12,7 @@ app.use(express.json());
 const PORT = 3000;
 
 const CONFIG_PATH = process.env.CONFIG_PATH || '/data/portfolio.json';
+const STATS_PATH = process.env.STATS_PATH || '/data/stats.json';
 const CACHE_PATH = process.env.CACHE_PATH || path.join(path.dirname(CONFIG_PATH), 'cache.json');
 
 // --- JSON File Cache ---
@@ -108,7 +109,8 @@ const swaggerSpec = {
     { name: 'Stock Data', description: 'Real-time quotes, search, and chart data from Yahoo Finance' },
     { name: 'Portfolio', description: 'CRUD operations for tickers and holdings, persisted to config/portfolio.json' },
     { name: 'Currency', description: 'Exchange rates from the Frankfurter API' },
-    { name: 'System', description: 'Health check and diagnostics' }
+    { name: 'System', description: 'Health check and diagnostics' },
+    { name: 'Stats', description: 'Visitor counter and online user tracking' }
   ],
   paths: {
     '/health': {
@@ -278,6 +280,50 @@ const swaggerSpec = {
         }
       }
     },
+    '/stats': {
+      get: {
+        tags: ['Stats'],
+        summary: 'Get current stats',
+        description: 'Returns the total visitor count and current number of online users.',
+        responses: {
+          '200': {
+            description: 'Stats object',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Stats' } } }
+          }
+        }
+      }
+    },
+    '/stats/visit': {
+      post: {
+        tags: ['Stats'],
+        summary: 'Record a visit',
+        description: 'Increments the total visitor counter and returns updated stats.',
+        responses: {
+          '200': {
+            description: 'Updated stats',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Stats' } } }
+          }
+        }
+      }
+    },
+    '/stats/heartbeat': {
+      post: {
+        tags: ['Stats'],
+        summary: 'Send heartbeat',
+        description: 'Keeps a user session alive for online user tracking. Clients should call this every 20 seconds.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', required: ['sessionId'], properties: { sessionId: { type: 'string', example: 'abc123xyz' } } } } }
+        },
+        responses: {
+          '200': {
+            description: 'Updated stats',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Stats' } } }
+          },
+          '400': { description: 'Missing sessionId' }
+        }
+      }
+    },
     '/portfolio/holding': {
       put: {
         tags: ['Portfolio'],
@@ -432,6 +478,14 @@ const swaggerSpec = {
           pensionHoldings: { type: 'array', items: { $ref: '#/components/schemas/Holding' }, description: 'Pension/retirement portfolio positions' }
         }
       },
+      Stats: {
+        type: 'object',
+        description: 'Visitor and online user statistics',
+        properties: {
+          totalVisitors: { type: 'integer', description: 'All-time total page visits', example: 1042 },
+          onlineUsers: { type: 'integer', description: 'Number of currently active users', example: 3 }
+        }
+      },
       Holding: {
         type: 'object',
         description: 'A single portfolio position',
@@ -478,6 +532,42 @@ const CURRENCY_TTL = 300_000; // 5 minutes
 
 const newsCache = new Map();
 const NEWS_TTL = 60_000; // 1 minute
+
+// --- Online users tracking ---
+const onlineUsers = new Map(); // sessionId -> lastSeen timestamp
+const HEARTBEAT_TTL = 45_000; // 45 seconds (clients ping every 20s)
+
+function cleanupStaleUsers() {
+  const now = Date.now();
+  for (const [id, lastSeen] of onlineUsers) {
+    if (now - lastSeen > HEARTBEAT_TTL) {
+      onlineUsers.delete(id);
+    }
+  }
+}
+
+// Cleanup every 15 seconds
+setInterval(cleanupStaleUsers, 15_000);
+
+// --- Stats persistence ---
+function readStats() {
+  try {
+    if (existsSync(STATS_PATH)) {
+      return JSON.parse(readFileSync(STATS_PATH, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('Failed to read stats:', err.message);
+  }
+  return { totalVisitors: 0 };
+}
+
+function writeStats(stats) {
+  try {
+    writeFileSync(STATS_PATH, JSON.stringify(stats, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write stats:', err.message);
+  }
+}
 
 // --- Helpers ---
 function getCachedQuote(symbol) {
@@ -754,6 +844,32 @@ app.get('/api/currency/rates', async (_req, res) => {
   }
 });
 
+// --- Stats ---
+
+// Record a new visit and return stats
+app.post('/api/stats/visit', (req, res) => {
+  const stats = readStats();
+  stats.totalVisitors = (stats.totalVisitors || 0) + 1;
+  writeStats(stats);
+  cleanupStaleUsers();
+  res.json({ totalVisitors: stats.totalVisitors, onlineUsers: onlineUsers.size });
+});
+
+// Heartbeat - keeps session alive
+app.post('/api/stats/heartbeat', (req, res) => {
+  const sessionId = req.body.sessionId;
+  if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
+  onlineUsers.set(sessionId, Date.now());
+  cleanupStaleUsers();
+  res.json({ totalVisitors: readStats().totalVisitors, onlineUsers: onlineUsers.size });
+});
+
+// Get current stats
+app.get('/api/stats', (_req, res) => {
+  cleanupStaleUsers();
+  res.json({ totalVisitors: readStats().totalVisitors, onlineUsers: onlineUsers.size });
+});
+
 // --- Portfolio Config ---
 
 function getDefaultConfig() {
@@ -797,7 +913,7 @@ app.get('/api/portfolio', (_req, res) => {
   res.json(readConfig());
 });
 
-// Save full portfolio config
+// Save full portfolio config (with optional portfolio parameter)
 app.put('/api/portfolio', (req, res) => {
   const config = req.body;
   if (!config || typeof config !== 'object') {
@@ -835,6 +951,7 @@ app.delete('/api/portfolio/ticker/:symbol', (req, res) => {
   const upper = req.params.symbol.toUpperCase();
   const config = readConfig();
   config.portfolios.default.tickers = config.portfolios.default.tickers.filter(t => t !== upper);
+  config.portfolios.default.holdings = config.portfolios.default.holdings.filter(h => h.symbol !== upper);
   writeConfig(config);
   res.json(config);
 });

@@ -13,6 +13,13 @@ A real-time stock ticker dashboard for tracking equities and ETFs across global 
 - [Configuration](#configuration)
 - [Architecture](#architecture)
 - [API Reference](#api-reference)
+  - [Swagger UI](#swagger-ui)
+  - [Stock Data](#stock-data)
+  - [Portfolio Management](#portfolio-management)
+  - [Currency](#currency)
+  - [Stats](#stats)
+- [Currency Handling](#currency-handling)
+- [Data Sources](#data-sources)
 - [Local Development](#local-development)
 - [Troubleshooting](#troubleshooting)
 
@@ -91,6 +98,7 @@ All indicators are calculated client-side from OHLCV data.
 - **File-based persistence** -- portfolio config stored in `config/portfolio.json`
 - **Dark theme** with responsive layout
 - **No API keys required** -- uses Yahoo Finance and Frankfurter API
+- **Information page** with total visitor counter (persisted) and real-time online users count
 - **Swagger UI** at [`/api/docs/`](http://localhost:8080/api/docs/)
 
 ---
@@ -172,6 +180,7 @@ A boilerplate is provided at `config/portfolio.example.json`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CONFIG_PATH` | `/data/portfolio.json` | Path to the portfolio config file inside the container |
+| `STATS_PATH` | `/data/stats.json` | Path to the visitor stats file inside the container |
 
 ### Tunable Parameters
 
@@ -183,6 +192,8 @@ A boilerplate is provided at `config/portfolio.example.json`:
 | Currency rate cache TTL | `proxy/server.js` | `300000` ms | How long exchange rates are cached |
 | News cache TTL | `proxy/server.js` | `60000` ms | How long news is cached |
 | Chart cache TTL | `proxy/server.js` | Range-dependent | 1min (1D), 5min (5D), 1hr (1M/3M), 24hr (1Y/5Y) |
+| Heartbeat TTL | `proxy/server.js` (`HEARTBEAT_TTL`) | `45000` ms | How long before an idle user is considered offline |
+| Heartbeat interval | `frontend/src/app/services/stats.service.ts` | `20000` ms | How often the client sends a heartbeat ping |
 
 ---
 
@@ -237,7 +248,8 @@ frontend/src/app/
 ├── services/
 │   ├── stock.service.ts        # HTTP client for /api/* (quotes, search, chart, news)
 │   ├── currency.service.ts      # Exchange rates, formatting
-│   └── portfolio.service.ts    # Portfolio CRUD, syncs with backend
+│   ├── portfolio.service.ts    # Portfolio CRUD, syncs with backend
+│   └── stats.service.ts        # Visitor counting and online user heartbeat tracking
 └── components/
     ├── dashboard/               # Main layout, 4 tabs (Overview/Watchlist/Holdings/Pension)
     ├── ticker-input/           # Search input with autocomplete
@@ -247,7 +259,8 @@ frontend/src/app/
     ├── pension-summary/        # Pension tab: stock cards, chart, table, news ticker
     ├── currency-toggle/        # Currency dropdown (USD, DKK, EUR, GBP, SEK, NOK, CHF, CAD, AUD)
     ├── market-status/          # Market state badge
-    └── news-ticker/            # Scrolling news feed from Yahoo RSS
+    ├── news-ticker/            # Scrolling news feed from Yahoo RSS
+    └── info-page/              # Information page with visitor counter and online users
 ```
 
 All components use Angular standalone components (no NgModules). State is managed with signals.
@@ -262,6 +275,7 @@ All components use Angular standalone components (no NgModules). State is manage
 - **News feeds** via Yahoo Finance RSS feeds, parsed and deduplicated
 - **Exchange rates** via Frankfurter API, cached for 5 minutes
 - **Portfolio CRUD** reading/writing `config/portfolio.json`
+- **Stats tracking** with persistent visitor counter and heartbeat-based online user tracking
 
 ---
 
@@ -393,6 +407,30 @@ Returns exchange rates relative to USD from Frankfurter API (cached 5 min).
   "GBp": 75.708,
   "EUR": 0.86768
 }
+```
+
+Includes synthetic sub-unit rates: `GBp` (British pence = GBP x 100) and `ILA` (Israeli agorot = ILS x 100).
+
+### Stats
+
+#### `GET /api/stats`
+
+Returns current visitor count and online user count.
+
+```json
+{ "totalVisitors": 1042, "onlineUsers": 3 }
+```
+
+#### `POST /api/stats/visit`
+
+Increments the visitor counter and returns updated stats. Called once per page load by the frontend.
+
+#### `POST /api/stats/heartbeat`
+
+Keeps a user session alive for online tracking. Clients send this every 20 seconds with a unique session ID. Sessions expire after 45 seconds of inactivity.
+
+```json
+{ "sessionId": "abc123xyz" }
 ```
 
 ---

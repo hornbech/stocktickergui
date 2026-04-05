@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
 export type DisplayCurrency = 'USD' | 'DKK' | 'EUR' | 'GBP' | 'SEK' | 'NOK' | 'CHF' | 'CAD' | 'AUD';

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { StockQuote } from '../../models/stock.model';
 import { PortfolioEntry } from '../../models/portfolio.model';
 import { CurrencyService } from '../../services/currency.service';
-import { PortfolioService } from '../../services/portfolio.service';
+import { MultiPortfolioService } from '../../services/multi-portfolio.service';
 import { MarketStatusComponent } from '../market-status/market-status.component';
 
 @Component({
@@ -537,7 +537,7 @@ export class StockCardComponent {
 
   constructor(
     public currencyService: CurrencyService,
-    private portfolioService: PortfolioService
+    private portfolioService: MultiPortfolioService
   ) {}
 
   ngOnInit(): void {

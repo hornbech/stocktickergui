@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Chart indicators broken when toggling** -- EMA, SMA, Bollinger Bands, RSI, MACD, and Volume indicators now correctly toggle on and off:
+  - Fixed `@ViewChild` using `static: true` on conditionally rendered elements (`@if` blocks), causing refs to always be undefined
+  - Fixed `updateCharts()` passing empty data arrays to render methods
+  - Store chart data for re-rendering when indicators are toggled
+  - Full chart re-render on toggle (via `setTimeout(0)`) ensures Angular has updated the DOM before accessing elements
+  - Fixed ResizeObserver leak (new observer created on every render without disconnecting the old one)
+
 ## [2.0.0] - 2026-04-06
 
 ### Added

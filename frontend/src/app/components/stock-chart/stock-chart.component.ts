@@ -287,9 +287,9 @@ interface ChartIndicators {
 export class StockChartComponent implements OnChanges, OnDestroy {
   @Input() symbol = '';
   @ViewChild('mainChartEl', { static: true }) mainChartEl!: ElementRef;
-  @ViewChild('rsiChartEl', { static: true }) rsiChartEl!: ElementRef;
-  @ViewChild('macdChartEl', { static: true }) macdChartEl!: ElementRef;
-  @ViewChild('volumeChartEl', { static: true }) volumeChartEl!: ElementRef;
+  @ViewChild('rsiChartEl') rsiChartEl!: ElementRef;
+  @ViewChild('macdChartEl') macdChartEl!: ElementRef;
+  @ViewChild('volumeChartEl') volumeChartEl!: ElementRef;
 
   ranges = CHART_RANGES;
   activeRange: ChartRange = CHART_RANGES[1];
@@ -318,6 +318,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
   rsiValue = signal(50);
   macdValue = signal({ macd: 0, signal: 0, histogram: 0 });
 
+  private lastData: any[] = [];
   private mainChart: any = null;
   private rsiChart: any = null;
   private macdChart: any = null;
@@ -329,6 +330,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
   private volumeSeries: any = null;
   private volumeMaSeries: any = null;
   private charts: any[] = [];
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(private stockService: StockService) {}
 
@@ -348,7 +350,10 @@ export class StockChartComponent implements OnChanges, OnDestroy {
       ...current,
       [key]: !current[key]
     }));
-    this.updateCharts();
+    // Wait for Angular to render/remove conditional @if elements, then re-render
+    if (this.lastData.length > 0) {
+      setTimeout(() => this.renderCharts(this.lastData), 0);
+    }
   }
 
   private loadChart(): void {
@@ -421,6 +426,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
   private renderCharts(data: any[]): void {
     this.destroyCharts();
+    this.lastData = data;
 
     const mainContainer = this.mainChartEl.nativeElement;
     const isMobile = window.innerWidth <= 768;
@@ -457,13 +463,14 @@ export class StockChartComponent implements OnChanges, OnDestroy {
       this.renderMACDChart(data);
     }
 
-    const resizeObserver = new ResizeObserver(entries => {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = new ResizeObserver(entries => {
       entries.forEach(entry => {
         const width = entry.contentRect.width;
         this.charts.forEach(c => c?.applyOptions({ width }));
       });
     });
-    resizeObserver.observe(mainContainer);
+    this.resizeObserver.observe(mainContainer);
   }
 
   private calculateSMA(data: number[], period: number): number[] {
@@ -745,21 +752,8 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     this.macdChart.timeScale().fitContent();
   }
 
-  private updateCharts(): void {
-    if (!this.mainChart) return;
-
-    if (this.indicators().volume && !this.volumeChart && this.volumeChartEl) {
-      this.renderVolumeChart(this.charts[0]?.getData ? [] : []);
-    }
-    if (this.indicators().rsi && !this.rsiChart && this.rsiChartEl) {
-      this.renderRSIChart([]);
-    }
-    if (this.indicators().macd && !this.macdChart && this.macdChartEl) {
-      this.renderMACDChart([]);
-    }
-  }
-
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
     this.destroyCharts();
   }
 }

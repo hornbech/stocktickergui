@@ -3,6 +3,9 @@ import YahooFinance from 'yahoo-finance2';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import swaggerUi from 'swagger-ui-express';
 import rateLimit from 'express-rate-limit';
+import session from 'express-session';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import path from 'path';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -10,6 +13,75 @@ const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 const app = express();
 app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '10kb' }));
+
+// --- Authentication ---
+const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';
+const AUTH_ENABLED = DASHBOARD_PASSWORD.length > 0;
+
+let passwordHash = null;
+if (AUTH_ENABLED) {
+  if (DASHBOARD_PASSWORD.length < 8) {
+    console.error('FATAL: DASHBOARD_PASSWORD must be at least 8 characters');
+    process.exit(1);
+  }
+  passwordHash = bcrypt.hashSync(DASHBOARD_PASSWORD, 12);
+  // Best-effort clear from env
+  delete process.env.DASHBOARD_PASSWORD;
+  console.log('Authentication enabled — login required');
+
+  const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+  app.use(session({
+    name: 'sid',
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      httpOnly: true,
+      secure: false, // set to true if behind HTTPS
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    },
+  }));
+} else {
+  console.log('Authentication disabled — no DASHBOARD_PASSWORD set');
+}
+
+// Brute force protection
+let failedAttempts = 0;
+let lockoutUntil = 0;
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many login attempts. Try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function bruteForceCheck(_req, res, next) {
+  const now = Date.now();
+  if (now < lockoutUntil) {
+    const waitSec = Math.ceil((lockoutUntil - now) / 1000);
+    return res.status(429).json({ error: `Locked out. Try again in ${waitSec}s.` });
+  }
+  next();
+}
+
+function recordFailedLogin() {
+  failedAttempts++;
+  console.warn(`Failed login attempt #${failedAttempts}`);
+  if (failedAttempts >= 3) {
+    const delaySec = Math.min(Math.pow(2, failedAttempts - 3), 900);
+    lockoutUntil = Date.now() + delaySec * 1000;
+  }
+}
+
+function recordSuccessfulLogin() {
+  failedAttempts = 0;
+  lockoutUntil = 0;
+}
 
 // --- Input validation ---
 const SYMBOL_RE = /^[A-Z0-9.\-^=]{1,20}$/;
@@ -33,6 +105,56 @@ function stripProto(obj) {
 const apiLimiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
 const writeLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
 app.use('/api/', apiLimiter);
+
+// --- Auth routes (before auth wall) ---
+app.post('/api/auth/login', loginLimiter, bruteForceCheck, async (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ success: true });
+
+  const { password } = req.body;
+  if (!password || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Password required' });
+  }
+
+  const match = await bcrypt.compare(password, passwordHash);
+  if (!match) {
+    recordFailedLogin();
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+
+  recordSuccessfulLogin();
+  req.session.regenerate((err) => {
+    if (err) return res.status(500).json({ error: 'Session error' });
+    req.session.authenticated = true;
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Session error' });
+      res.json({ success: true });
+    });
+  });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ success: true });
+  req.session.destroy((err) => {
+    if (err) return res.status(500).json({ error: 'Logout failed' });
+    res.clearCookie('sid', { path: '/' });
+    res.json({ success: true });
+  });
+});
+
+app.get('/api/auth/status', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ authenticated: true, authEnabled: false });
+  res.json({ authenticated: req.session?.authenticated === true, authEnabled: true });
+});
+
+// --- Auth wall (auth routes are registered above, so they match before this runs) ---
+app.use((req, res, next) => {
+  if (!AUTH_ENABLED) return next();
+  if (req.session?.authenticated === true) return next();
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  next(); // Let nginx serve the Angular app (which shows login)
+});
 const PORT = 3000;
 
 const CONFIG_PATH = process.env.CONFIG_PATH || '/data/portfolio.json';

@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Optional password authentication** -- protect the dashboard when exposing it to the internet without a reverse proxy:
+  - Enable by setting `DASHBOARD_PASSWORD` environment variable (min 8 characters)
+  - bcrypt-hashed at startup (cost factor 12), plaintext wiped from process.env
+  - Server-side sessions via `express-session` with httpOnly, sameSite strict cookies
+  - Brute force protection: login rate limiter (10 attempts / 15 min) + exponential lockout after 3 failures
+  - Session fixation protection via `session.regenerate()` on login
+  - Auth wall middleware blocks all API routes when unauthenticated
+  - Angular login page with password field, error display, and loading state
+  - Sign out button in info panel (only visible when auth is enabled)
+  - Fully backwards compatible: no password set = no auth, app works as before
+  - Optional `SESSION_SECRET` env var for session persistence across restarts
+
 ### Security
 - **Rate limiting** -- added `express-rate-limit` with 120 req/min on all API routes and 30 req/min on write endpoints (portfolio, holdings, pension)
 - **Input validation** -- all symbol parameters validated against `^[A-Z0-9.\-^=]{1,20}$` regex; chart range and interval validated against allowlists

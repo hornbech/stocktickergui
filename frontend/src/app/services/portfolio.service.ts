@@ -38,7 +38,13 @@ export class PortfolioService {
     return this.pensionEntries().map(e => e.symbol);
   });
 
-  constructor(private http: HttpClient) {
+  private initialized = false;
+
+  constructor(private http: HttpClient) {}
+
+  init(): void {
+    if (this.initialized) return;
+    this.initialized = true;
     this.loadFromServer();
   }
 

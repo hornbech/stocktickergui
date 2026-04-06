@@ -21,9 +21,7 @@ export class CurrencyService {
   /** All rates relative to USD: { DKK: 6.85, GBP: 0.79, GBp: 79, ... } */
   rates = signal<Record<string, number>>({ USD: 1, DKK: 6.85, GBP: 0.79, GBp: 79 });
 
-  constructor(private http: HttpClient) {
-    this.fetchRates();
-  }
+  constructor(private http: HttpClient) {}
 
   initCurrency(c: string): void {
     const supported = SUPPORTED_DISPLAY_CURRENCIES.map(x => x.code);

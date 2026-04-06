@@ -14,6 +14,7 @@ import { PensionSummaryComponent } from '../pension-summary/pension-summary.comp
 import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.component';
 import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
 import { StatsService } from '../../services/stats.service';
+import { AuthService } from '../../services/auth.service';
 import { MarketHoursComponent } from '../market-hours/market-hours.component';
 
 @Component({
@@ -116,6 +117,17 @@ import { MarketHoursComponent } from '../market-hours/market-hours.component';
               View on GitHub
             </a>
           </div>
+
+          @if (authService.authEnabled()) {
+          <button class="logout-btn" (click)="onLogout()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign out
+          </button>
+          }
 
           <p class="info-footer">Open source — feature requests and merge requests welcome!</p>
         </div>
@@ -449,6 +461,26 @@ import { MarketHoursComponent } from '../market-hours/market-hours.component';
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
+    }
+    .logout-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .logout-btn:hover {
+      border-color: var(--red);
+      color: var(--red);
+      background: var(--red-bg);
     }
     .info-footer {
       font-size: 12px;
@@ -826,7 +858,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     public portfolioService: PortfolioService,
     public currencyService: CurrencyService,
     private http: HttpClient,
-    public statsService: StatsService
+    public statsService: StatsService,
+    public authService: AuthService
   ) {
     effect(() => {
       if (this.portfolioService.loaded() && !this.initialized) {
@@ -841,6 +874,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.portfolioService.init();
+    this.currencyService.fetchRates();
     this.refreshSub = interval(30000).subscribe(() => {
       if (document.visibilityState === 'visible') {
         this.fetchAllQuotes();
@@ -858,6 +893,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.refreshSub?.unsubscribe();
+  }
+
+  onLogout(): void {
+    this.authService.logout().subscribe(() => {
+      this.showInfoPanel.set(false);
+    });
   }
 
   onTickerAdded(symbol: string): void {

@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
   - Compact news ticker with smaller text
   - 16px input font size to prevent iOS Safari auto-zoom
   - Currency exchange rate hidden on small screens to save space
+- **Live market hours in header bar** -- NASDAQ and Copenhagen exchange status displayed as compact pills in the top bar:
+  - Shows open/closed state with green/grey indicator dot
+  - Dynamic countdown: time remaining until close (when open) or time until next open (when closed)
+  - Displays current local time at each exchange with timezone abbreviation
+  - Timezone-aware using `Intl.DateTimeFormat` -- works correctly regardless of client timezone
+  - Handles weekends automatically (skips Saturday/Sunday when calculating next open)
+  - Updates every 30 seconds
+  - Responsive: hides countdown text on mobile, shows just name + dot + time
 - **JSON file cache for chart data and currency rates** -- persists to `config/cache.json` across container restarts:
   - Chart data cached with range-dependent TTLs (1min for 1D, 5min for 5D, 1hr for 1M/3M, 24hr for 1Y/5Y)
   - Currency rates cached to disk with 5-minute TTL, providing a warm fallback on cold starts

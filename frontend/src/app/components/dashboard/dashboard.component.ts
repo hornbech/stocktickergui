@@ -14,6 +14,7 @@ import { PensionSummaryComponent } from '../pension-summary/pension-summary.comp
 import { CurrencyToggleComponent } from '../currency-toggle/currency-toggle.component';
 import { NewsTickerComponent } from '../news-ticker/news-ticker.component';
 import { StatsService } from '../../services/stats.service';
+import { MarketHoursComponent } from '../market-hours/market-hours.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -26,7 +27,8 @@ import { StatsService } from '../../services/stats.service';
     HoldingsSummaryComponent,
     PensionSummaryComponent,
     CurrencyToggleComponent,
-    NewsTickerComponent
+    NewsTickerComponent,
+    MarketHoursComponent
   ],
   template: `
     <header class="app-header">
@@ -47,6 +49,7 @@ import { StatsService } from '../../services/stats.service';
         }
       </div>
       <div class="header-right">
+        <app-market-hours></app-market-hours>
         <app-currency-toggle></app-currency-toggle>
       </div>
     </header>

@@ -4,7 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-06
+
 ### Added
+- **Live market hours in header bar** -- NASDAQ and Copenhagen exchange status displayed as compact pills in the top bar:
+  - Shows open/closed state with green/grey indicator dot
+  - Dynamic countdown: time remaining until close (when open) or time until next open (when closed)
+  - Displays current local time at each exchange with timezone abbreviation
+  - Timezone-aware using `Intl.DateTimeFormat` -- works correctly regardless of client timezone
+  - Handles weekends automatically (skips Saturday/Sunday when calculating next open)
+  - Updates every 30 seconds
+  - Responsive: hides countdown text on mobile, shows just name + dot + time
+- **Info panel** -- slide-out panel accessible from the header with:
+  - About section with creator info and tech stack
+  - Server uptime display
+  - Live visitor counter and online users indicator with pulsing green dot
+  - GitHub repository link
+- **Social links on stock cards** -- Yahoo Finance, StockTwits, and Reddit links for quick external research
 - **Responsive mobile layout** -- the dashboard now auto-detects phone screens (viewport <= 768px) and adapts the entire UI:
   - Compact header with stacked title and currency selector
   - Horizontally scrollable tab bar
@@ -14,22 +30,13 @@ All notable changes to this project will be documented in this file.
   - Compact news ticker with smaller text
   - 16px input font size to prevent iOS Safari auto-zoom
   - Currency exchange rate hidden on small screens to save space
-- **Live market hours in header bar** -- NASDAQ and Copenhagen exchange status displayed as compact pills in the top bar:
-  - Shows open/closed state with green/grey indicator dot
-  - Dynamic countdown: time remaining until close (when open) or time until next open (when closed)
-  - Displays current local time at each exchange with timezone abbreviation
-  - Timezone-aware using `Intl.DateTimeFormat` -- works correctly regardless of client timezone
-  - Handles weekends automatically (skips Saturday/Sunday when calculating next open)
-  - Updates every 30 seconds
-  - Responsive: hides countdown text on mobile, shows just name + dot + time
 - **JSON file cache for chart data and currency rates** -- persists to `config/cache.json` across container restarts:
   - Chart data cached with range-dependent TTLs (1min for 1D, 5min for 5D, 1hr for 1M/3M, 24hr for 1Y/5Y)
   - Currency rates cached to disk with 5-minute TTL, providing a warm fallback on cold starts
   - Three-tier currency fallback: in-memory -> disk cache (even if expired) -> hardcoded defaults
   - Hourly automatic cleanup of expired chart cache entries
   - Zero new dependencies (uses existing `fs` module)
-- **Mobile Support section** in README documentation
-- **Creator attribution and open source notice** in README
+- **Visitor tracking** with session-based heartbeat and persistent stats in `config/stats.json`
 - **CHANGELOG.md** to track project changes
 
 ### Removed

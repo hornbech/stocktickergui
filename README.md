@@ -115,7 +115,11 @@ cd stocktickergui
 # 2. Create your portfolio config from the example
 cp config/portfolio.example.json config/portfolio.json
 
-# 3. Build and run
+# 3. (Optional) Enable password protection
+cp .env.example .env
+# Edit .env and set DASHBOARD_PASSWORD=your-password
+
+# 4. Build and run
 docker compose up --build
 ```
 
@@ -179,35 +183,50 @@ A boilerplate is provided at `config/portfolio.example.json`:
 
 The dashboard includes optional password authentication for internet-facing deployments. When enabled, all routes (API and frontend) are protected behind a login screen.
 
-**To enable authentication**, set the `DASHBOARD_PASSWORD` environment variable:
+#### Setup
+
+1. Copy the example environment file and set your password:
 
 ```bash
-# Option 1: Inline
-DASHBOARD_PASSWORD=your-secure-password docker compose up --build -d
+cp .env.example .env
+```
 
-# Option 2: .env file (recommended)
-echo "DASHBOARD_PASSWORD=your-secure-password" >> .env
+2. Edit `.env` and set your password:
+
+```env
+DASHBOARD_PASSWORD=your-secure-password
+```
+
+3. Start the container (Docker Compose reads `.env` automatically):
+
+```bash
 docker compose up --build -d
 ```
 
-**To disable authentication** (default), simply don't set `DASHBOARD_PASSWORD`. The app works exactly as before with no login required.
+That's it. Open `http://localhost:8080` and you'll see a login screen.
 
-**Auth bypass for specific hosts**: If you want a specific hostname to bypass authentication (e.g., a public demo site), set `AUTH_BYPASS_HOST`:
+**To disable authentication**, leave `DASHBOARD_PASSWORD` empty or remove it from `.env`. The app works exactly as before with no login required.
 
-```bash
-# In .env file
-DASHBOARD_PASSWORD=your-secure-password
+#### Auth bypass for demo sites
+
+To let a specific hostname skip authentication (e.g., a public demo), add this to `.env`:
+
+```env
 AUTH_BYPASS_HOST=demo.hhornbech.dk
 ```
 
-This allows `https://demo.hhornbech.dk` to access the dashboard without a password, while all other hostnames require authentication.
+Visitors accessing `https://demo.hhornbech.dk` see the dashboard without logging in. All other hostnames still require the password.
 
-**Session persistence**: By default, sessions are invalidated when the container restarts. To persist sessions across restarts, set a `SESSION_SECRET`:
+#### Session persistence
+
+By default, sessions are lost when the container restarts. To keep users logged in across restarts, generate a secret and add it to `.env`:
 
 ```bash
-# In .env file
-SESSION_SECRET=$(openssl rand -hex 32)
+# Generate and append to .env
+echo "SESSION_SECRET=$(openssl rand -hex 32)" >> .env
 ```
+
+#### Security details
 
 | Feature | Details |
 |---------|---------|

@@ -4,3 +4,4 @@ config/portfolio.json
 config/cache.json
 .angular/
 .vscode/
+.env

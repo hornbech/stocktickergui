@@ -17,6 +17,7 @@ app.use(express.json({ limit: '10kb' }));
 // --- Authentication ---
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';
 const AUTH_ENABLED = DASHBOARD_PASSWORD.length > 0;
+const AUTH_BYPASS_HOST = process.env.AUTH_BYPASS_HOST || ''; // hostname that skips auth (e.g. demo.example.com)
 
 let passwordHash = null;
 if (AUTH_ENABLED) {
@@ -28,6 +29,9 @@ if (AUTH_ENABLED) {
   // Best-effort clear from env
   delete process.env.DASHBOARD_PASSWORD;
   console.log('Authentication enabled — login required');
+  if (AUTH_BYPASS_HOST) {
+    console.log(`Authentication bypass enabled for host: ${AUTH_BYPASS_HOST}`);
+  }
 
   const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
   app.use(session({
@@ -143,12 +147,16 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/status', (req, res) => {
   if (!AUTH_ENABLED) return res.json({ authenticated: true, authEnabled: false });
+  if (AUTH_BYPASS_HOST && req.hostname === AUTH_BYPASS_HOST) {
+    return res.json({ authenticated: true, authEnabled: false });
+  }
   res.json({ authenticated: req.session?.authenticated === true, authEnabled: true });
 });
 
 // --- Auth wall (auth routes are registered above, so they match before this runs) ---
 app.use((req, res, next) => {
   if (!AUTH_ENABLED) return next();
+  if (AUTH_BYPASS_HOST && req.hostname === AUTH_BYPASS_HOST) return next();
   if (req.session?.authenticated === true) return next();
   if (req.path.startsWith('/api/')) {
     return res.status(401).json({ error: 'Authentication required' });

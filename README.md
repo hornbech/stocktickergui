@@ -175,10 +175,55 @@ A boilerplate is provided at `config/portfolio.example.json`:
 | `portfolios.pension.tickers` | `string[]` | Pension fund tickers to track |
 | `portfolios.pension.holdings` | `object[]` | Pension positions |
 
+### Authentication
+
+The dashboard includes optional password authentication for internet-facing deployments. When enabled, all routes (API and frontend) are protected behind a login screen.
+
+**To enable authentication**, set the `DASHBOARD_PASSWORD` environment variable:
+
+```bash
+# Option 1: Inline
+DASHBOARD_PASSWORD=your-secure-password docker compose up --build -d
+
+# Option 2: .env file (recommended)
+echo "DASHBOARD_PASSWORD=your-secure-password" >> .env
+docker compose up --build -d
+```
+
+**To disable authentication** (default), simply don't set `DASHBOARD_PASSWORD`. The app works exactly as before with no login required.
+
+**Auth bypass for specific hosts**: If you want a specific hostname to bypass authentication (e.g., a public demo site), set `AUTH_BYPASS_HOST`:
+
+```bash
+# In .env file
+DASHBOARD_PASSWORD=your-secure-password
+AUTH_BYPASS_HOST=demo.hhornbech.dk
+```
+
+This allows `https://demo.hhornbech.dk` to access the dashboard without a password, while all other hostnames require authentication.
+
+**Session persistence**: By default, sessions are invalidated when the container restarts. To persist sessions across restarts, set a `SESSION_SECRET`:
+
+```bash
+# In .env file
+SESSION_SECRET=$(openssl rand -hex 32)
+```
+
+| Feature | Details |
+|---------|---------|
+| Password hashing | bcrypt (cost factor 12) |
+| Session duration | 7 days (rolling, activity-based) |
+| Brute force protection | 10 attempts / 15 min per IP + exponential lockout |
+| Cookie security | httpOnly, sameSite strict |
+| Minimum password length | 8 characters |
+
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `DASHBOARD_PASSWORD` | _(empty)_ | Set to enable authentication (min 8 characters). Leave empty to disable. |
+| `AUTH_BYPASS_HOST` | _(empty)_ | Hostname that bypasses authentication (e.g., `demo.hhornbech.dk`) |
+| `SESSION_SECRET` | _(random)_ | Secret for signing session cookies. Set for session persistence across restarts. |
 | `CONFIG_PATH` | `/data/portfolio.json` | Path to the portfolio config file inside the container |
 | `STATS_PATH` | `/data/stats.json` | Path to the visitor stats file inside the container |
 

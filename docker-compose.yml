@@ -7,4 +7,5 @@ services:
       - ./config:/data
     environment:
       - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
+      - AUTH_BYPASS_HOST=${AUTH_BYPASS_HOST:-}
     restart: unless-stopped

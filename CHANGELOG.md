@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+- **Rate limiting** -- added `express-rate-limit` with 120 req/min on all API routes and 30 req/min on write endpoints (portfolio, holdings, pension)
+- **Input validation** -- all symbol parameters validated against `^[A-Z0-9.\-^=]{1,20}$` regex; chart range and interval validated against allowlists
+- **Symbol count cap** -- max 50 symbols per request on quote and news endpoints to prevent amplification attacks
+- **Generic error responses** -- all API error handlers now return generic messages instead of leaking internal paths and stack traces
+- **Trust proxy hardened** -- changed `trust proxy` from `true` (trust all) to `'loopback'` (only trust nginx on localhost)
+- **Body size limit** -- set `express.json({ limit: '10kb' })` to prevent oversized payloads
+- **Session ID hardened** -- validated sessionId (string, max 64 chars) and capped `onlineUsers` Map at 10,000 entries to prevent memory exhaustion
+- **Prototype pollution prevention** -- strip `__proto__`, `constructor`, `prototype` keys from portfolio PUT body; reject arrays
+- **News limit capped** -- `?limit` parameter capped at 100
+- **Subresource Integrity (SRI)** -- added `integrity` and `crossorigin="anonymous"` attributes to the Lightweight Charts CDN script tag
+- **Cryptographic session IDs** -- replaced `Math.random()` with `crypto.getRandomValues()` for session ID generation
+- **Security headers** -- nginx now sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`
+- **Write endpoint rate limiting** -- portfolio mutation endpoints use a stricter 30 req/min limiter
+
 ### Fixed
 - **Chart indicators broken when toggling** -- EMA, SMA, Bollinger Bands, RSI, MACD, and Volume indicators now correctly toggle on and off:
   - Fixed `@ViewChild` using `static: true` on conditionally rendered elements (`@if` blocks), causing refs to always be undefined
@@ -11,6 +26,7 @@ All notable changes to this project will be documented in this file.
   - Store chart data for re-rendering when indicators are toggled
   - Full chart re-render on toggle (via `setTimeout(0)`) ensures Angular has updated the DOM before accessing elements
   - Fixed ResizeObserver leak (new observer created on every render without disconnecting the old one)
+- **`readPensionHoldings` crash** -- fixed undefined function call on DELETE pension endpoint (should be `getPensionHoldings`)
 
 ## [2.0.0] - 2026-04-06
 

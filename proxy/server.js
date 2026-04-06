@@ -2,13 +2,37 @@ import express from 'express';
 import YahooFinance from 'yahoo-finance2';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import swaggerUi from 'swagger-ui-express';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const app = express();
-app.enable('trust proxy');
-app.use(express.json());
+app.set('trust proxy', 'loopback');
+app.use(express.json({ limit: '10kb' }));
+
+// --- Input validation ---
+const SYMBOL_RE = /^[A-Z0-9.\-^=]{1,20}$/;
+const VALID_RANGES = ['1d', '5d', '1mo', '3mo', '1y', '5y'];
+const VALID_INTERVALS = ['5m', '15m', '1d', '1wk', '1mo'];
+
+function validateSymbol(s) {
+  return SYMBOL_RE.test(s);
+}
+
+function stripProto(obj) {
+  if (obj && typeof obj === 'object') {
+    delete obj.__proto__;
+    delete obj.constructor;
+    delete obj.prototype;
+  }
+  return obj;
+}
+
+// --- Rate limiting ---
+const apiLimiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
+const writeLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
+app.use('/api/', apiLimiter);
 const PORT = 3000;
 
 const CONFIG_PATH = process.env.CONFIG_PATH || '/data/portfolio.json';
@@ -594,6 +618,8 @@ app.get('/api/quote/:symbols', async (req, res) => {
   try {
     const symbols = req.params.symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
     if (symbols.length === 0) return res.status(400).json({ error: 'No symbols provided' });
+    if (symbols.length > 50) return res.status(400).json({ error: 'Too many symbols (max 50)' });
+    if (!symbols.every(validateSymbol)) return res.status(400).json({ error: 'Invalid symbol format' });
 
     const results = [];
     const toFetch = [];
@@ -621,7 +647,7 @@ app.get('/api/quote/:symbols', async (req, res) => {
     res.json(results);
   } catch (err) {
     console.error('Quote error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch quotes' });
   }
 });
 
@@ -645,7 +671,7 @@ app.get('/api/search', async (req, res) => {
     res.json(mapped);
   } catch (err) {
     console.error('Search error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Search failed' });
   }
 });
 
@@ -653,8 +679,11 @@ app.get('/api/search', async (req, res) => {
 app.get('/api/chart/:symbol', async (req, res) => {
   try {
     const symbol = req.params.symbol.toUpperCase();
+    if (!validateSymbol(symbol)) return res.status(400).json({ error: 'Invalid symbol format' });
     const range = req.query.range || '1mo';
     const interval = req.query.interval || '1d';
+    if (!VALID_RANGES.includes(range)) return res.status(400).json({ error: 'Invalid range' });
+    if (!VALID_INTERVALS.includes(interval)) return res.status(400).json({ error: 'Invalid interval' });
 
     const cached = getCachedChart(symbol, range, interval);
     if (cached) return res.json(cached);
@@ -683,7 +712,7 @@ app.get('/api/chart/:symbol', async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error('Chart error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch chart data' });
   }
 });
 
@@ -691,10 +720,10 @@ app.get('/api/chart/:symbol', async (req, res) => {
 app.get('/api/news', async (req, res) => {
   try {
     const symbols = req.query.symbols ? req.query.symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
-    
-    if (symbols.length === 0) {
-      return res.json([]);
-    }
+
+    if (symbols.length === 0) return res.json([]);
+    if (symbols.length > 50) return res.status(400).json({ error: 'Too many symbols (max 50)' });
+    if (!symbols.every(validateSymbol)) return res.status(400).json({ error: 'Invalid symbol format' });
 
     async function fetchNewsForSymbol(symbol) {
       const cacheKey = `news_${symbol}`;
@@ -793,11 +822,11 @@ app.get('/api/news', async (req, res) => {
       return true;
     });
 
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     res.json(uniqueNews.slice(0, limit));
   } catch (err) {
     console.error('News error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch news' });
   }
 });
 
@@ -858,7 +887,13 @@ app.post('/api/stats/visit', (req, res) => {
 // Heartbeat - keeps session alive
 app.post('/api/stats/heartbeat', (req, res) => {
   const sessionId = req.body.sessionId;
-  if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
+  if (!sessionId || typeof sessionId !== 'string' || sessionId.length > 64) {
+    return res.status(400).json({ error: 'Invalid sessionId' });
+  }
+  if (onlineUsers.size > 10_000 && !onlineUsers.has(sessionId)) {
+    cleanupStaleUsers();
+    if (onlineUsers.size > 10_000) return res.status(429).json({ error: 'Too many sessions' });
+  }
   onlineUsers.set(sessionId, Date.now());
   cleanupStaleUsers();
   res.json({ totalVisitors: readStats().totalVisitors, onlineUsers: onlineUsers.size });
@@ -914,9 +949,9 @@ app.get('/api/portfolio', (_req, res) => {
 });
 
 // Save full portfolio config (with optional portfolio parameter)
-app.put('/api/portfolio', (req, res) => {
-  const config = req.body;
-  if (!config || typeof config !== 'object') {
+app.put('/api/portfolio', writeLimiter, (req, res) => {
+  const config = stripProto(req.body);
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
     return res.status(400).json({ error: 'Invalid config' });
   }
   if (!config.portfolios) {
@@ -933,7 +968,7 @@ app.put('/api/portfolio', (req, res) => {
 });
 
 // Add a ticker to default portfolio
-app.post('/api/portfolio/ticker', (req, res) => {
+app.post('/api/portfolio/ticker', writeLimiter, (req, res) => {
   const { symbol } = req.body;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
@@ -957,7 +992,7 @@ app.delete('/api/portfolio/ticker/:symbol', (req, res) => {
 });
 
 // Update a holding in default portfolio (GAK/shares)
-app.put('/api/portfolio/holding', (req, res) => {
+app.put('/api/portfolio/holding', writeLimiter, (req, res) => {
   const { symbol, shares, avgPrice } = req.body;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
@@ -1002,7 +1037,7 @@ app.get('/api/portfolio/pension', (_req, res) => {
 });
 
 // Update pension holding
-app.put('/api/portfolio/pension/holding', (req, res) => {
+app.put('/api/portfolio/pension/holding', writeLimiter, (req, res) => {
   const { symbol, shares, avgPrice } = req.body;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
@@ -1025,7 +1060,7 @@ app.put('/api/portfolio/pension/holding', (req, res) => {
 // Remove pension ticker
 app.delete('/api/portfolio/pension/ticker/:symbol', (req, res) => {
   const upper = req.params.symbol.toUpperCase();
-  const holdings = readPensionHoldings().filter(h => h.symbol !== upper);
+  const holdings = getPensionHoldings().filter(h => h.symbol !== upper);
   writePensionHoldings(holdings);
   res.json({ holdings });
 });

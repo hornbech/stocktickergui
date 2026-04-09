@@ -148,11 +148,9 @@ interface HoldingItem {
               </span>
               <span>{{ currencyService.formatConverted(holdingItemValue(item), item.quote?.currency || 'USD') }}</span>
               <span [class.positive]="holdingPnL(item) >= 0" [class.negative]="holdingPnL(item) < 0">
+                {{ holdingPnL(item) >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(holdingPnL(item)), item.quote?.currency || 'USD') }}
                 @if (item.entry.avgPrice > 0) {
-                  {{ holdingPnL(item) >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(holdingPnL(item)), item.quote?.currency || 'USD') }}
                   ({{ holdingPnLPercent(item) >= 0 ? '+' : '' }}{{ holdingPnLPercent(item).toFixed(2) }}%)
-                } @else {
-                  —
                 }
               </span>
               <span class="actions">
@@ -607,7 +605,7 @@ export class HoldingsSummaryComponent {
   }
 
   holdingPnL(item: HoldingItem): number {
-    if (!item.quote || item.entry.avgPrice === 0) return 0;
+    if (!item.quote) return 0;
     const nativeValue = item.entry.shares * item.quote.regularMarketPrice;
     const nativeCost = item.entry.shares * item.entry.avgPrice;
     return nativeValue - nativeCost;
@@ -627,9 +625,8 @@ export class HoldingsSummaryComponent {
   totalHoldingPnL(): number {
     return this.holdingItems().reduce((sum, item) => {
       if (!item.quote) return sum;
-      const nativeCost = item.entry.shares * item.entry.avgPrice;
-      if (nativeCost === 0) return sum;
       const nativeValue = this.holdingItemValue(item);
+      const nativeCost = item.entry.shares * item.entry.avgPrice;
       const nativePnL = nativeValue - nativeCost;
       return sum + this.currencyService.convertToDisplay(nativePnL, item.quote.currency);
     }, 0);

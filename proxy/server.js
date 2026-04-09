@@ -818,13 +818,16 @@ app.get('/api/chart/:symbol', async (req, res) => {
     const cached = getCachedChart(symbol, range, interval);
     if (cached) return res.json(cached);
 
+    const isIntraday = ['5m', '15m'].includes(interval);
+
     const result = await yahooFinance.chart(symbol, {
       period1: getStartDate(range),
-      interval: interval
+      interval: interval,
+      ...(isIntraday && { includePrePost: true })
     });
 
     if (!result || !result.quotes) {
-      return res.json([]);
+      return res.json({ data: [] });
     }
 
     const data = result.quotes
@@ -838,8 +841,30 @@ app.get('/api/chart/:symbol', async (req, res) => {
         volume: q.volume || 0
       }));
 
-    setCachedChart(symbol, range, interval, data);
-    res.json(data);
+    const response = { data };
+
+    if (isIntraday && result.meta) {
+      const tz = result.meta.exchangeTimezoneName;
+      const regular = result.meta.currentTradingPeriod?.regular;
+      if (tz && regular && regular.start && regular.end) {
+        const extractTime = (date) => {
+          const parts = new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz
+          }).formatToParts(date);
+          const h = parts.find(p => p.type === 'hour').value;
+          const m = parts.find(p => p.type === 'minute').value;
+          return `${h}:${m}`;
+        };
+        response.regularHours = {
+          timezone: tz,
+          open: extractTime(regular.start),
+          close: extractTime(regular.end)
+        };
+      }
+    }
+
+    setCachedChart(symbol, range, interval, response);
+    res.json(response);
   } catch (err) {
     console.error('Chart error:', err.message);
     res.status(500).json({ error: 'Failed to fetch chart data' });

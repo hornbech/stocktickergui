@@ -2,7 +2,7 @@ import { Component, Input, OnChanges, OnDestroy, ElementRef, ViewChild, SimpleCh
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StockService } from '../../services/stock.service';
-import { CHART_RANGES, ChartRange } from '../../models/stock.model';
+import { CHART_RANGES, ChartRange, RegularHours } from '../../models/stock.model';
 
 declare const LightweightCharts: any;
 
@@ -319,6 +319,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
   macdValue = signal({ macd: 0, signal: 0, histogram: 0 });
 
   private lastData: any[] = [];
+  private regularHours: RegularHours | undefined;
   private mainChart: any = null;
   private rsiChart: any = null;
   private macdChart: any = null;
@@ -364,9 +365,12 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
     this.stockService.getChart(this.symbol, this.activeRange.range, this.activeRange.interval)
       .subscribe({
-        next: (data) => {
+        next: (response: any) => {
           this.loading = false;
-          if (data.length === 0) {
+          // Handle both new { data, regularHours } and legacy array format
+          const data = Array.isArray(response) ? response : response.data;
+          this.regularHours = Array.isArray(response) ? undefined : response.regularHours;
+          if (!data || data.length === 0) {
             this.error = true;
             return;
           }
@@ -440,18 +444,37 @@ export class StockChartComponent implements OnChanges, OnDestroy {
       wickUpColor: '#3fb950',
       wickDownColor: '#f85149'
     });
-    this.candleSeries.setData(data.map(d => ({
-      time: d.time,
-      open: d.open,
-      high: d.high,
-      low: d.low,
-      close: d.close
-    })));
+    this.candleSeries.setData(data.map(d => {
+      const candle: any = {
+        time: d.time,
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close
+      };
+      if (this.regularHours && !this.isInRegularHours(d.time)) {
+        const isUp = d.close >= d.open;
+        candle.color = isUp ? 'rgba(63, 185, 80, 0.25)' : 'rgba(248, 81, 73, 0.25)';
+        candle.borderColor = isUp ? 'rgba(63, 185, 80, 0.35)' : 'rgba(248, 81, 73, 0.35)';
+        candle.wickColor = isUp ? 'rgba(63, 185, 80, 0.35)' : 'rgba(248, 81, 73, 0.35)';
+      }
+      return candle;
+    }));
 
     this.calculateBollingerBands(data);
     this.calculateAndRenderMAs(data);
 
     this.mainChart.timeScale().fitContent();
+
+    // Add background shading for extended hours regions
+    const extendedRanges = this.computeExtendedRanges(data);
+    if (extendedRanges.length > 0) {
+      try {
+        this.candleSeries.attachPrimitive(this.createSessionShading(extendedRanges));
+      } catch (e) {
+        console.warn('Session shading (main):', e);
+      }
+    }
 
     if (this.indicators().volume && this.volumeChartEl) {
       this.renderVolumeChart(data);
@@ -612,11 +635,17 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     this.volumeChart.priceScale('volume').applyOptions({
       scaleMargins: { top: 0.1, bottom: 0 }
     });
-    this.volumeSeries.setData(data.map(d => ({
-      time: d.time,
-      value: d.volume,
-      color: d.close >= d.open ? 'rgba(63, 185, 80, 0.4)' : 'rgba(248, 81, 73, 0.4)'
-    })));
+    this.volumeSeries.setData(data.map(d => {
+      const extended = this.regularHours && !this.isInRegularHours(d.time);
+      const isUp = d.close >= d.open;
+      return {
+        time: d.time,
+        value: d.volume,
+        color: extended
+          ? (isUp ? 'rgba(63, 185, 80, 0.15)' : 'rgba(248, 81, 73, 0.15)')
+          : (isUp ? 'rgba(63, 185, 80, 0.4)' : 'rgba(248, 81, 73, 0.4)')
+      };
+    }));
 
     const volumes = data.map(d => d.volume);
     const volumeMa = this.calculateSMA(volumes, 20);
@@ -630,6 +659,15 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     })));
 
     this.volumeChart.timeScale().fitContent();
+
+    const extendedRanges = this.computeExtendedRanges(data);
+    if (extendedRanges.length > 0) {
+      try {
+        this.volumeSeries.attachPrimitive(this.createSessionShading(extendedRanges));
+      } catch (e) {
+        console.warn('Session shading (vol):', e);
+      }
+    }
   }
 
   private renderRSIChart(data: any[]): void {
@@ -750,6 +788,74 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     }).setData(data.map(d => ({ time: d.time, value: 0 })));
 
     this.macdChart.timeScale().fitContent();
+  }
+
+  private computeExtendedRanges(data: any[]): { start: number; end: number }[] {
+    if (!this.regularHours) return [];
+    const ranges: { start: number; end: number }[] = [];
+    let rangeStart: number | null = null;
+
+    for (let i = 0; i < data.length; i++) {
+      const isExtended = !this.isInRegularHours(data[i].time);
+      if (isExtended && rangeStart === null) {
+        rangeStart = data[i].time;
+      } else if (!isExtended && rangeStart !== null) {
+        ranges.push({ start: rangeStart, end: data[i - 1].time });
+        rangeStart = null;
+      }
+    }
+    if (rangeStart !== null) {
+      ranges.push({ start: rangeStart, end: data[data.length - 1].time });
+    }
+    return ranges;
+  }
+
+  private createSessionShading(ranges: { start: number; end: number }[]): any {
+    let chartRef: any = null;
+    return {
+      attached({ chart }: any) { chartRef = chart; },
+      detached() { chartRef = null; },
+      paneViews() {
+        return [{
+          zOrder() { return 'bottom'; },
+          renderer() {
+            return {
+              draw(target: any) {
+                target.useMediaCoordinateSpace(({ context, mediaSize }: any) => {
+                  const ts = chartRef?.timeScale();
+                  if (!ts) return;
+                  context.fillStyle = 'rgba(255, 255, 255, 0.04)';
+                  for (const range of ranges) {
+                    const x1 = ts.timeToCoordinate(range.start as any);
+                    const x2 = ts.timeToCoordinate(range.end as any);
+                    if (x1 === null || x2 === null) continue;
+                    const left = Math.min(x1, x2);
+                    const width = Math.abs(x2 - x1) + 8;
+                    context.fillRect(left - 4, 0, width, mediaSize.height);
+                  }
+                });
+              }
+            };
+          }
+        }];
+      }
+    };
+  }
+
+  private isInRegularHours(timestamp: number): boolean {
+    if (!this.regularHours) return true;
+    const { timezone, open, close } = this.regularHours;
+    const date = new Date(timestamp * 1000);
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone
+    }).formatToParts(date);
+    const h = parseInt(parts.find(p => p.type === 'hour')!.value, 10);
+    const m = parseInt(parts.find(p => p.type === 'minute')!.value, 10);
+    const timeMinutes = h * 60 + m;
+
+    const [openH, openM] = open.split(':').map(Number);
+    const [closeH, closeM] = close.split(':').map(Number);
+    return timeMinutes >= openH * 60 + openM && timeMinutes < closeH * 60 + closeM;
   }
 
   ngOnDestroy(): void {

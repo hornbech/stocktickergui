@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { StockQuote, ChartDataPoint, SearchResult, NewsItem } from '../models/stock.model';
+import { StockQuote, ChartDataPoint, ChartResponse, SearchResult, NewsItem } from '../models/stock.model';
 
 @Injectable({ providedIn: 'root' })
 export class StockService {
@@ -12,8 +12,8 @@ export class StockService {
     return this.http.get<StockQuote[]>(`/api/quote/${symbols.join(',')}`);
   }
 
-  getChart(symbol: string, range: string, interval: string): Observable<ChartDataPoint[]> {
-    return this.http.get<ChartDataPoint[]>(`/api/chart/${symbol}?range=${range}&interval=${interval}`);
+  getChart(symbol: string, range: string, interval: string): Observable<ChartResponse> {
+    return this.http.get<ChartResponse>(`/api/chart/${symbol}?range=${range}&interval=${interval}`);
   }
 
   search(query: string): Observable<SearchResult[]> {

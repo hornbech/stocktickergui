@@ -50,6 +50,7 @@ The application has four main tabs:
 
 - **Interactive candlestick charts** powered by TradingView Lightweight Charts
 - **Chart ranges**: 1D, 5D (default), 1M, 3M, 1Y, 5Y
+- **Extended hours visualization** -- 1D and 5D charts include pre-market and after-hours data with muted candle colors and subtle background shading to distinguish regular session from extended hours
 - **Trend indicators** (toggleable):
   - EMA(20) - cyan
   - SMA(50) - orange
@@ -73,6 +74,7 @@ All indicators are calculated client-side from OHLCV data.
 ### Portfolio Management
 
 - **GAK/GAV tracking** -- enter your average purchase price (GAK) and number of shares to see unrealized P&L
+- **Zero-cost positions (RSUs)** -- positions with GAK 0 show full market value as P&L (percentage omitted since cost basis is zero)
 - **Holdings tab** -- track your investment positions with add/remove functionality
 - **Pension tab** -- separate tracking for retirement accounts
 - **Overview tab** -- combined view of all portfolios with totals
@@ -383,6 +385,10 @@ Fetch OHLCV chart data.
 |-----------|--------|-------------|
 | `range` | `1d`, `5d`, `1mo`, `3mo`, `1y`, `5y` | Time range |
 | `interval` | `5m`, `15m`, `1d`, `1wk`, `1mo` | Candle interval |
+
+**Response:** `{ "data": [...], "regularHours": { "timezone": "...", "open": "HH:MM", "close": "HH:MM" } }`
+
+For intraday intervals (`5m`, `15m`), the response includes pre/post market candles and `regularHours` metadata with the exchange timezone and session open/close times. Non-intraday intervals omit `regularHours`.
 
 #### `GET /api/news?symbols=:symbols&limit=:limit`
 

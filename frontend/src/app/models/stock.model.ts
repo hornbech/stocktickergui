@@ -43,6 +43,17 @@ export interface ChartDataPoint {
   volume: number;
 }
 
+export interface RegularHours {
+  timezone: string;
+  open: string;  // "HH:MM"
+  close: string; // "HH:MM"
+}
+
+export interface ChartResponse {
+  data: ChartDataPoint[];
+  regularHours?: RegularHours;
+}
+
 export interface SearchResult {
   symbol: string;
   name: string;

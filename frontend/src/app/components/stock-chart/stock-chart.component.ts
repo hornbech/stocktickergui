@@ -34,6 +34,17 @@ interface ChartIndicators {
               </button>
             }
           </div>
+          @if (intervalOptions.length > 0) {
+            <div class="interval-buttons">
+              @for (opt of intervalOptions; track opt.interval) {
+                <button
+                  [class.active]="activeInterval() === opt.interval"
+                  (click)="changeInterval(opt.interval)">
+                  {{ opt.label }}
+                </button>
+              }
+            </div>
+          }
           <div class="indicator-buttons">
             @for (ind of indicatorList; track ind.key) {
               <button
@@ -144,6 +155,31 @@ interface ChartIndicators {
       background: var(--blue);
       border-color: var(--blue);
       color: #fff;
+    }
+    .interval-buttons {
+      display: flex;
+      gap: 4px;
+    }
+    .interval-buttons button {
+      padding: 4px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .interval-buttons button:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-secondary);
+    }
+    .interval-buttons button.active {
+      background: var(--blue-bg);
+      border-color: var(--blue);
+      color: var(--blue);
     }
     .indicator-buttons {
       display: flex;
@@ -281,6 +317,14 @@ interface ChartIndicators {
         gap: 8px;
         font-size: 10px;
       }
+      .interval-buttons {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .interval-buttons button {
+        padding: 5px 8px;
+        font-size: 10px;
+      }
     }
   `]
 })
@@ -293,6 +337,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
   ranges = CHART_RANGES;
   activeRange: ChartRange = CHART_RANGES[1];
+  activeInterval = signal<string>(CHART_RANGES[1].interval); // '15m'
   indicators = signal<ChartIndicators>({
     ema20: true,
     sma50: true,
@@ -302,6 +347,10 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     rsi: false,
     macd: false
   });
+
+  get intervalOptions() {
+    return this.activeRange.intervalOptions ?? [];
+  }
 
   indicatorList = [
     { key: 'ema20' as keyof ChartIndicators, label: 'EMA20' },
@@ -343,6 +392,12 @@ export class StockChartComponent implements OnChanges, OnDestroy {
 
   changeRange(range: ChartRange): void {
     this.activeRange = range;
+    this.activeInterval.set(range.interval);
+    this.loadChart();
+  }
+
+  changeInterval(interval: string): void {
+    this.activeInterval.set(interval);
     this.loadChart();
   }
 
@@ -363,7 +418,7 @@ export class StockChartComponent implements OnChanges, OnDestroy {
     this.loading = true;
     this.error = false;
 
-    this.stockService.getChart(this.symbol, this.activeRange.range, this.activeRange.interval)
+    this.stockService.getChart(this.symbol, this.activeRange.range, this.activeInterval())
       .subscribe({
         next: (response: any) => {
           this.loading = false;

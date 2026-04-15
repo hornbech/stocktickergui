@@ -65,15 +65,34 @@ export interface ChartRange {
   label: string;
   range: string;
   interval: string;
+  intervalOptions?: { label: string; interval: string }[];
 }
 
 export const CHART_RANGES: ChartRange[] = [
-  { label: '1D', range: '1d', interval: '5m' },
-  { label: '5D', range: '5d', interval: '15m' },
-  { label: '1M', range: '1mo', interval: '1d' },
-  { label: '3M', range: '3mo', interval: '1d' },
-  { label: '1Y', range: '1y', interval: '1wk' },
-  { label: '5Y', range: '5y', interval: '1mo' }
+  {
+    label: '1D',
+    range: '1d',
+    interval: '5m',
+    intervalOptions: [
+      { label: '1m', interval: '1m' },
+      { label: '2m', interval: '2m' },
+      { label: '5m', interval: '5m' },
+    ]
+  },
+  {
+    label: '5D',
+    range: '5d',
+    interval: '15m',
+    intervalOptions: [
+      { label: '1m', interval: '1m' },
+      { label: '5m', interval: '5m' },
+      { label: '15m', interval: '15m' },
+    ]
+  },
+  { label: '1M',  range: '1mo', interval: '1d' },
+  { label: '3M',  range: '3mo', interval: '1d' },
+  { label: '1Y',  range: '1y',  interval: '1wk' },
+  { label: '5Y',  range: '5y',  interval: '1mo' },
 ];
 
 export interface NewsItem {

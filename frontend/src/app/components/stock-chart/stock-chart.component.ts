@@ -177,9 +177,9 @@ interface ChartIndicators {
       color: var(--text-secondary);
     }
     .interval-buttons button.active {
-      background: var(--blue-bg);
+      background: var(--blue);
       border-color: var(--blue);
-      color: var(--blue);
+      color: #fff;
     }
     .indicator-buttons {
       display: flex;

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Intraday interval picker** -- higher-resolution chart intervals for 1D and 5D ranges:
+  - 1D range: choose between 1m, 2m, and 5m candles (default 5m)
+  - 5D range: choose between 1m, 5m, and 15m candles (default 15m)
+  - Interval selector appears as a secondary pill row below the range buttons, hidden for daily+ ranges
+  - Switching ranges resets the interval to the range default
+  - Extended hours gray shading works correctly at all intraday intervals
+
+### Added
 - **Optional password authentication** -- protect the dashboard when exposing it to the internet without a reverse proxy:
   - Enable by setting `DASHBOARD_PASSWORD` environment variable (min 8 characters)
   - bcrypt-hashed at startup (cost factor 12), plaintext wiped from process.env

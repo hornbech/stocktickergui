@@ -818,7 +818,7 @@ app.get('/api/chart/:symbol', async (req, res) => {
     const cached = getCachedChart(symbol, range, interval);
     if (cached) return res.json(cached);
 
-    const isIntraday = ['5m', '15m'].includes(interval);
+    const isIntraday = ['1m', '2m', '5m', '15m'].includes(interval);
 
     const result = await yahooFinance.chart(symbol, {
       period1: getStartDate(range),

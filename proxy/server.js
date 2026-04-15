@@ -90,7 +90,7 @@ function recordSuccessfulLogin() {
 // --- Input validation ---
 const SYMBOL_RE = /^[A-Z0-9.\-^=]{1,20}$/;
 const VALID_RANGES = ['1d', '5d', '1mo', '3mo', '1y', '5y'];
-const VALID_INTERVALS = ['5m', '15m', '1d', '1wk', '1mo'];
+const VALID_INTERVALS = ['1m', '2m', '5m', '15m', '1d', '1wk', '1mo'];
 
 function validateSymbol(s) {
   return SYMBOL_RE.test(s);
@@ -332,7 +332,7 @@ const swaggerSpec = {
         parameters: [
           { name: 'symbol', in: 'path', required: true, description: 'Ticker symbol', schema: { type: 'string', example: 'AAPL' } },
           { name: 'range', in: 'query', required: false, description: 'Time range', schema: { type: 'string', enum: ['1d', '5d', '1mo', '3mo', '1y', '5y'], default: '1mo' } },
-          { name: 'interval', in: 'query', required: false, description: 'Candle interval', schema: { type: 'string', enum: ['5m', '15m', '1d', '1wk', '1mo'], default: '1d' } }
+          { name: 'interval', in: 'query', required: false, description: 'Candle interval', schema: { type: 'string', enum: ['1m', '2m', '5m', '15m', '1d', '1wk', '1mo'], default: '1d' } }
         ],
         responses: {
           '200': {

@@ -7,12 +7,29 @@ import session from 'express-session';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import path from 'path';
+import pino from 'pino';
+
+const log = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  ...(process.env.NODE_ENV !== 'production' && {
+    transport: { target: 'pino-pretty', options: { colorize: true } }
+  })
+});
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const app = express();
 app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '10kb' }));
+
+app.use((req, res, next) => {
+  if (req.path === '/api/health' || req.path === '/api/stats/heartbeat') return next();
+  const start = Date.now();
+  res.on('finish', () => {
+    log.info({ method: req.method, path: req.path, status: res.statusCode, durationMs: Date.now() - start });
+  });
+  next();
+});
 
 // --- Authentication ---
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["every monday"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group frontend minor and patch updates",
+      "matchFileNames": ["frontend/package.json"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "frontend dependencies (minor/patch)",
+      "automerge": false
+    },
+    {
+      "description": "Group proxy minor and patch updates",
+      "matchFileNames": ["proxy/package.json"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "proxy dependencies (minor/patch)",
+      "automerge": false
+    },
+    {
+      "description": "yahoo-finance2 always gets its own PR",
+      "matchPackageNames": ["yahoo-finance2"],
+      "groupName": null,
+      "addLabels": ["yahoo-finance"],
+      "automerge": false
+    }
+  ]
+}

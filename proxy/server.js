@@ -11,6 +11,7 @@ import pino from 'pino';
 
 const log = pino({
   level: process.env.LOG_LEVEL || 'info',
+  serializers: { err: pino.stdSerializers.err },
   ...(process.env.NODE_ENV !== 'production' && {
     transport: { target: 'pino-pretty', options: { colorize: true } }
   })
@@ -202,7 +203,7 @@ function readCache() {
       return JSON.parse(readFileSync(CACHE_PATH, 'utf-8'));
     }
   } catch (err) {
-    log.error({ err: err.message }, 'Failed to read cache');
+    log.error({ err }, 'Failed to read cache');
   }
   return { charts: {}, currency: null };
 }
@@ -211,7 +212,7 @@ function writeCache(cache) {
   try {
     writeFileSync(CACHE_PATH, JSON.stringify(cache), 'utf-8');
   } catch (err) {
-    log.error({ err: err.message }, 'Failed to write cache');
+    log.error({ err }, 'Failed to write cache');
   }
 }
 
@@ -262,7 +263,7 @@ setInterval(() => {
       log.info({ purged }, 'Cache cleanup complete');
     }
   } catch (err) {
-    log.error({ err: err.message }, 'Cache cleanup error');
+    log.error({ err }, 'Cache cleanup error');
   }
 }, 3_600_000);
 
@@ -727,7 +728,7 @@ function readStats() {
       return JSON.parse(readFileSync(STATS_PATH, 'utf-8'));
     }
   } catch (err) {
-    log.error({ err: err.message }, 'Failed to read stats');
+    log.error({ err }, 'Failed to read stats');
   }
   return { totalVisitors: 0 };
 }
@@ -736,7 +737,7 @@ function writeStats(stats) {
   try {
     writeFileSync(STATS_PATH, JSON.stringify(stats, null, 2), 'utf-8');
   } catch (err) {
-    log.error({ err: err.message }, 'Failed to write stats');
+    log.error({ err }, 'Failed to write stats');
   }
 }
 
@@ -793,7 +794,7 @@ app.get('/api/quote/:symbols', async (req, res) => {
 
     res.json(results);
   } catch (err) {
-    log.error({ symbols, err: err.message }, 'Quote fetch failed');
+    log.error({ symbols, err }, 'Quote fetch failed');
     res.status(500).json({ error: 'Failed to fetch quotes' });
   }
 });
@@ -817,7 +818,7 @@ app.get('/api/search', async (req, res) => {
 
     res.json(mapped);
   } catch (err) {
-    log.error({ query, err: err.message }, 'Search failed');
+    log.error({ query, err }, 'Search failed');
     res.status(500).json({ error: 'Search failed' });
   }
 });
@@ -883,15 +884,15 @@ app.get('/api/chart/:symbol', async (req, res) => {
     setCachedChart(symbol, range, interval, response);
     res.json(response);
   } catch (err) {
-    log.error({ symbol, range, interval, err: err.message }, 'Chart fetch failed');
+    log.error({ symbol, range, interval, err }, 'Chart fetch failed');
     res.status(500).json({ error: 'Failed to fetch chart data' });
   }
 });
 
 // Get news for one or more symbols
 app.get('/api/news', async (req, res) => {
+  const symbols = req.query.symbols ? req.query.symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
   try {
-    const symbols = req.query.symbols ? req.query.symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
 
     if (symbols.length === 0) return res.json([]);
     if (symbols.length > 50) return res.status(400).json({ error: 'Too many symbols (max 50)' });
@@ -924,7 +925,7 @@ app.get('/api/news', async (req, res) => {
           symbols: [symbol]
         }));
       } catch (err) {
-        log.error({ symbol, err: err.message }, 'News fetch failed');
+        log.error({ symbol, err }, 'News fetch failed');
         return [];
       }
     }
@@ -997,7 +998,7 @@ app.get('/api/news', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     res.json(uniqueNews.slice(0, limit));
   } catch (err) {
-    log.error({ err: err.message }, 'News error');
+    log.error({ symbols, err }, 'News error');
     res.status(500).json({ error: 'Failed to fetch news' });
   }
 });
@@ -1036,7 +1037,7 @@ app.get('/api/currency/rates', async (_req, res) => {
     setCachedCurrency(rates);
     res.json(rates);
   } catch (err) {
-    log.error({ err: err.message }, 'Currency fetch failed');
+    log.error({ err }, 'Currency fetch failed');
     // Fallback chain: in-memory -> disk (ignore expiry) -> hardcoded
     if (currencyCache.rate) return res.json(currencyCache.rate);
     const diskFallback = readCache().currency?.data;
@@ -1098,7 +1099,7 @@ function readConfig() {
       }
     }
   } catch (err) {
-    log.error({ err: err.message }, 'Failed to read config');
+    log.error({ err }, 'Failed to read config');
   }
   return getDefaultConfig();
 }
@@ -1107,7 +1108,7 @@ function writeConfig(config) {
   try {
     writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
   } catch (err) {
-    log.error({ err: err.message }, 'Failed to write config');
+    log.error({ err }, 'Failed to write config');
   }
 }
 

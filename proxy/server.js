@@ -26,7 +26,7 @@ app.use((req, res, next) => {
   if (req.path === '/api/health' || req.path === '/api/stats/heartbeat') return next();
   const start = Date.now();
   res.on('finish', () => {
-    log.info({ method: req.method, path: req.path, status: res.statusCode, durationMs: Date.now() - start });
+    log.info({ method: req.method, path: req.path, status: res.statusCode, durationMs: Date.now() - start }, 'request');
   });
   next();
 });

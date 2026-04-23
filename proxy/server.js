@@ -39,15 +39,15 @@ const AUTH_BYPASS_HOST = process.env.AUTH_BYPASS_HOST || ''; // hostname that sk
 let passwordHash = null;
 if (AUTH_ENABLED) {
   if (DASHBOARD_PASSWORD.length < 8) {
-    console.error('FATAL: DASHBOARD_PASSWORD must be at least 8 characters');
+    log.fatal('DASHBOARD_PASSWORD must be at least 8 characters');
     process.exit(1);
   }
   passwordHash = bcrypt.hashSync(DASHBOARD_PASSWORD, 12);
   // Best-effort clear from env
   delete process.env.DASHBOARD_PASSWORD;
-  console.log('Authentication enabled — login required');
+  log.info('Authentication enabled');
   if (AUTH_BYPASS_HOST) {
-    console.log(`Authentication bypass enabled for host: ${AUTH_BYPASS_HOST}`);
+    log.info({ host: AUTH_BYPASS_HOST }, 'Auth bypass enabled');
   }
 
   const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
@@ -66,7 +66,7 @@ if (AUTH_ENABLED) {
     },
   }));
 } else {
-  console.log('Authentication disabled — no DASHBOARD_PASSWORD set');
+  log.info('Authentication disabled');
 }
 
 // Brute force protection
@@ -92,7 +92,7 @@ function bruteForceCheck(_req, res, next) {
 
 function recordFailedLogin() {
   failedAttempts++;
-  console.warn(`Failed login attempt #${failedAttempts}`);
+  log.warn({ attempt: failedAttempts }, 'Failed login attempt');
   if (failedAttempts >= 3) {
     const delaySec = Math.min(Math.pow(2, failedAttempts - 3), 900);
     lockoutUntil = Date.now() + delaySec * 1000;
@@ -202,7 +202,7 @@ function readCache() {
       return JSON.parse(readFileSync(CACHE_PATH, 'utf-8'));
     }
   } catch (err) {
-    console.error('Failed to read cache:', err.message);
+    log.error({ err: err.message }, 'Failed to read cache');
   }
   return { charts: {}, currency: null };
 }
@@ -211,7 +211,7 @@ function writeCache(cache) {
   try {
     writeFileSync(CACHE_PATH, JSON.stringify(cache), 'utf-8');
   } catch (err) {
-    console.error('Failed to write cache:', err.message);
+    log.error({ err: err.message }, 'Failed to write cache');
   }
 }
 
@@ -259,10 +259,10 @@ setInterval(() => {
     }
     if (purged > 0) {
       writeCache(cache);
-      console.log(`Cache cleanup: purged ${purged} expired chart entries`);
+      log.info({ purged }, 'Cache cleanup complete');
     }
   } catch (err) {
-    console.error('Cache cleanup error:', err.message);
+    log.error({ err: err.message }, 'Cache cleanup error');
   }
 }, 3_600_000);
 
@@ -727,7 +727,7 @@ function readStats() {
       return JSON.parse(readFileSync(STATS_PATH, 'utf-8'));
     }
   } catch (err) {
-    console.error('Failed to read stats:', err.message);
+    log.error({ err: err.message }, 'Failed to read stats');
   }
   return { totalVisitors: 0 };
 }
@@ -736,7 +736,7 @@ function writeStats(stats) {
   try {
     writeFileSync(STATS_PATH, JSON.stringify(stats, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Failed to write stats:', err.message);
+    log.error({ err: err.message }, 'Failed to write stats');
   }
 }
 
@@ -762,8 +762,8 @@ app.get('/api/health', (_req, res) => {
 
 // Get quotes for one or more symbols (comma-separated)
 app.get('/api/quote/:symbols', async (req, res) => {
+  const symbols = req.params.symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
   try {
-    const symbols = req.params.symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
     if (symbols.length === 0) return res.status(400).json({ error: 'No symbols provided' });
     if (symbols.length > 50) return res.status(400).json({ error: 'Too many symbols (max 50)' });
     if (!symbols.every(validateSymbol)) return res.status(400).json({ error: 'Invalid symbol format' });
@@ -793,15 +793,15 @@ app.get('/api/quote/:symbols', async (req, res) => {
 
     res.json(results);
   } catch (err) {
-    console.error('Quote error:', err.message);
+    log.error({ symbols, err: err.message }, 'Quote fetch failed');
     res.status(500).json({ error: 'Failed to fetch quotes' });
   }
 });
 
 // Search for tickers
 app.get('/api/search', async (req, res) => {
+  const query = req.query.q;
   try {
-    const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Missing query param q' });
 
     const results = await yahooFinance.search(query, { newsCount: 0 });
@@ -817,18 +817,18 @@ app.get('/api/search', async (req, res) => {
 
     res.json(mapped);
   } catch (err) {
-    console.error('Search error:', err.message);
+    log.error({ query, err: err.message }, 'Search failed');
     res.status(500).json({ error: 'Search failed' });
   }
 });
 
 // Get chart data for a symbol
 app.get('/api/chart/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  const range = req.query.range || '1mo';
+  const interval = req.query.interval || '1d';
   try {
-    const symbol = req.params.symbol.toUpperCase();
     if (!validateSymbol(symbol)) return res.status(400).json({ error: 'Invalid symbol format' });
-    const range = req.query.range || '1mo';
-    const interval = req.query.interval || '1d';
     if (!VALID_RANGES.includes(range)) return res.status(400).json({ error: 'Invalid range' });
     if (!VALID_INTERVALS.includes(interval)) return res.status(400).json({ error: 'Invalid interval' });
 
@@ -883,7 +883,7 @@ app.get('/api/chart/:symbol', async (req, res) => {
     setCachedChart(symbol, range, interval, response);
     res.json(response);
   } catch (err) {
-    console.error('Chart error:', err.message);
+    log.error({ symbol, range, interval, err: err.message }, 'Chart fetch failed');
     res.status(500).json({ error: 'Failed to fetch chart data' });
   }
 });
@@ -924,7 +924,7 @@ app.get('/api/news', async (req, res) => {
           symbols: [symbol]
         }));
       } catch (err) {
-        console.error(`News fetch error for ${symbol}:`, err.message);
+        log.error({ symbol, err: err.message }, 'News fetch failed');
         return [];
       }
     }
@@ -997,7 +997,7 @@ app.get('/api/news', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     res.json(uniqueNews.slice(0, limit));
   } catch (err) {
-    console.error('News error:', err.message);
+    log.error({ err: err.message }, 'News error');
     res.status(500).json({ error: 'Failed to fetch news' });
   }
 });
@@ -1036,7 +1036,7 @@ app.get('/api/currency/rates', async (_req, res) => {
     setCachedCurrency(rates);
     res.json(rates);
   } catch (err) {
-    console.error('Currency error:', err.message);
+    log.error({ err: err.message }, 'Currency fetch failed');
     // Fallback chain: in-memory -> disk (ignore expiry) -> hardcoded
     if (currencyCache.rate) return res.json(currencyCache.rate);
     const diskFallback = readCache().currency?.data;
@@ -1098,7 +1098,7 @@ function readConfig() {
       }
     }
   } catch (err) {
-    console.error('Failed to read config:', err.message);
+    log.error({ err: err.message }, 'Failed to read config');
   }
   return getDefaultConfig();
 }
@@ -1107,7 +1107,7 @@ function writeConfig(config) {
   try {
     writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Failed to write config:', err.message);
+    log.error({ err: err.message }, 'Failed to write config');
   }
 }
 
@@ -1296,5 +1296,5 @@ function round(n) {
 }
 
 app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Proxy server running on http://127.0.0.1:${PORT}`);
+  log.info({ port: PORT }, 'Proxy server started');
 });

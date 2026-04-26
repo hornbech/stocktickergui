@@ -9,12 +9,11 @@ import crypto from 'crypto';
 import path from 'path';
 import pino from 'pino';
 
+const isDev = process.env.NODE_ENV === 'development';
 const log = pino({
   level: process.env.LOG_LEVEL || 'info',
   serializers: { err: pino.stdSerializers.err },
-  ...(process.env.NODE_ENV !== 'production' && {
-    transport: { target: 'pino-pretty', options: { colorize: true } }
-  })
+  ...(isDev && { transport: { target: 'pino-pretty', options: { colorize: true } } })
 });
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });

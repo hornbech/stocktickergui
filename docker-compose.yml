@@ -6,6 +6,7 @@ services:
     volumes:
       - ./config:/data
     environment:
+      - NODE_ENV=production
       - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
       - AUTH_BYPASS_HOST=${AUTH_BYPASS_HOST:-}
     restart: unless-stopped

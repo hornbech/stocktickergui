@@ -88,7 +88,6 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
       cursor: pointer;
       transition: opacity var(--transition);
     }
-    .add-btn:hover { opacity: 0.85; }
     .add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .results-dropdown {
       position: absolute;

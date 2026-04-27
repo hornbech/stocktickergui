@@ -134,9 +134,6 @@ import { AuthService } from '../../services/auth.service';
       justify-content: center;
       min-height: 40px;
     }
-    .login-btn:hover:not(:disabled) {
-      opacity: 0.9;
-    }
     .login-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;

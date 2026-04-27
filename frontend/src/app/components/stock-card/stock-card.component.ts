@@ -34,7 +34,7 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
         </div>
         <div class="header-right">
           <app-market-status [marketState]="quote.marketState"></app-market-status>
-          <button class="remove-btn" (click)="remove($event)" title="Remove ticker">
+          <button class="remove-btn" (click)="remove($event)" [attr.aria-label]="'Remove ' + quote.symbol">
             <svg viewBox="0 0 16 16" width="14" height="14">
               <path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.749.749 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.749.749 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
             </svg>
@@ -99,7 +99,13 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
       </div>
 
       <div class="indicators-section">
-        <div class="indicators-header" (click)="toggleIndicators($event)">
+        <div class="indicators-header"
+             (click)="toggleIndicators($event)"
+             [attr.aria-expanded]="showIndicators"
+             aria-label="Indicators"
+             tabindex="0"
+             (keydown.enter)="toggleIndicators($event)"
+             (keydown.space)="toggleIndicators($event)">
           <span>Indicators</span>
           <svg [class.expanded]="showIndicators" viewBox="0 0 16 16" width="12" height="12">
             <path fill="currentColor" d="m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
@@ -129,8 +135,8 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
               <span class="ind-label">MA50</span>
               <span class="ind-value" [class.positive]="priceVsMA(quote.fiftyDayAverage) >= 0" [class.negative]="priceVsMA(quote.fiftyDayAverage) < 0">
                 {{ quote.fiftyDayAverage ? currencyService.formatNative(quote.fiftyDayAverage, quote.currency) : 'N/A' }}
-                @if (quote.fiftyDayAverageChangePercent !== null) {
-                  <span class="ma-pct">({{ quote.fiftyDayAverageChangePercent >= 0 ? '+' : '' }}{{ quote.fiftyDayAverageChangePercent?.toFixed(1) }}%)</span>
+                @if (quote.fiftyDayAverageChangePercent != null) {
+                  <span class="ma-pct">({{ quote.fiftyDayAverageChangePercent >= 0 ? '+' : '' }}{{ quote.fiftyDayAverageChangePercent.toFixed(1) }}%)</span>
                 }
               </span>
             </div>
@@ -138,8 +144,8 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
               <span class="ind-label">MA200</span>
               <span class="ind-value" [class.positive]="priceVsMA(quote.twoHundredDayAverage) >= 0" [class.negative]="priceVsMA(quote.twoHundredDayAverage) < 0">
                 {{ quote.twoHundredDayAverage ? currencyService.formatNative(quote.twoHundredDayAverage, quote.currency) : 'N/A' }}
-                @if (quote.twoHundredDayAverageChangePercent !== null) {
-                  <span class="ma-pct">({{ quote.twoHundredDayAverageChangePercent >= 0 ? '+' : '' }}{{ quote.twoHundredDayAverageChangePercent?.toFixed(1) }}%)</span>
+                @if (quote.twoHundredDayAverageChangePercent != null) {
+                  <span class="ma-pct">({{ quote.twoHundredDayAverageChangePercent >= 0 ? '+' : '' }}{{ quote.twoHundredDayAverageChangePercent.toFixed(1) }}%)</span>
                 }
               </span>
             </div>
@@ -165,7 +171,13 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
 
       @if (showHoldingsSection) {
         <div class="holdings-section">
-          <div class="holdings-header" (click)="toggleHoldings($event)">
+          <div class="holdings-header"
+               (click)="toggleHoldings($event)"
+               [attr.aria-expanded]="showHoldings"
+               aria-label="Holdings"
+               tabindex="0"
+               (keydown.enter)="toggleHoldings($event)"
+               (keydown.space)="toggleHoldings($event)">
             <span>Holdings (GAK)</span>
             <svg [class.expanded]="showHoldings" viewBox="0 0 16 16" width="12" height="12">
               <path fill="currentColor" d="m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
@@ -450,6 +462,17 @@ import { MarketStatusComponent } from '../market-status/market-status.component'
       padding: 4px 0;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+    }
+    .indicators-header:hover,
+    .holdings-header:hover {
+      background: var(--bg-card-hover);
+      border-radius: var(--radius);
+    }
+    .indicators-header:focus-visible,
+    .holdings-header:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+      border-radius: var(--radius);
     }
     .indicators-header svg {
       transition: transform var(--transition);

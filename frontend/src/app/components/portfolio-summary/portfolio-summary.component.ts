@@ -31,36 +31,40 @@ import { CurrencyService } from '../../services/currency.service';
             </div>
           }
         </div>
-        <div class="holdings-table">
-          <div class="table-header" [class.with-pnl]="hasCostBasis">
-            <span>Ticker</span>
-            <span>Shares</span>
-            <span>Price</span>
-            <span>Value ({{ currencyService.displayCurrency() }})</span>
-            @if (hasCostBasis) {
-              <span>GAK</span>
-              <span>P&L ({{ currencyService.displayCurrency() }})</span>
-            }
-          </div>
-          @for (item of entriesWithQuotes; track item.entry.symbol) {
-            <div class="table-row" [class.with-pnl]="hasCostBasis">
-              <span class="ticker-col">{{ item.entry.symbol }}</span>
-              <span>{{ item.entry.shares }}</span>
-              <span>{{ currencyService.formatNative(item.quote?.regularMarketPrice || 0, item.quote?.currency || 'USD') }}</span>
-              <span>{{ currencyService.formatConverted(itemValue(item), item.quote?.currency || 'USD') }}</span>
+        <table class="holdings-table">
+          <thead>
+            <tr>
+              <th scope="col">Ticker</th>
+              <th scope="col">Shares</th>
+              <th scope="col">Price</th>
+              <th scope="col">Value ({{ currencyService.displayCurrency() }})</th>
               @if (hasCostBasis) {
-                <span>{{ item.entry.avgPrice > 0 ? currencyService.formatNative(item.entry.avgPrice, item.quote?.currency || 'USD') : '—' }}</span>
-                <span [class.text-green]="pnl(item) >= 0" [class.text-red]="pnl(item) < 0">
-                  @if (item.entry.avgPrice > 0) {
-                    {{ pnl(item) >= 0 ? '+' : '-' }}{{ currencyService.formatConverted(absPnlItem(item), item.quote?.currency || 'USD') }}
-                  } @else {
-                    —
-                  }
-                </span>
+                <th scope="col">GAK</th>
+                <th scope="col">P&amp;L ({{ currencyService.displayCurrency() }})</th>
               }
-            </div>
-          }
-        </div>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of entriesWithQuotes; track item.entry.symbol) {
+              <tr>
+                <td class="ticker-col">{{ item.entry.symbol }}</td>
+                <td>{{ item.entry.shares }}</td>
+                <td>{{ currencyService.formatNative(item.quote?.regularMarketPrice || 0, item.quote?.currency || 'USD') }}</td>
+                <td>{{ currencyService.formatConverted(itemValue(item), item.quote?.currency || 'USD') }}</td>
+                @if (hasCostBasis) {
+                  <td>{{ item.entry.avgPrice > 0 ? currencyService.formatNative(item.entry.avgPrice, item.quote?.currency || 'USD') : '—' }}</td>
+                  <td [class.text-green]="pnl(item) >= 0" [class.text-red]="pnl(item) < 0">
+                    @if (item.entry.avgPrice > 0) {
+                      {{ pnl(item) >= 0 ? '+' : '-' }}{{ currencyService.formatConverted(absPnlItem(item), item.quote?.currency || 'USD') }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
     }
   `,
@@ -101,36 +105,30 @@ import { CurrencyService } from '../../services/currency.service';
     .stat-block.positive .stat-value { color: var(--green); }
     .stat-block.negative .stat-value { color: var(--red); }
     .holdings-table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 13px;
     }
-    .table-header {
-      display: grid;
-      grid-template-columns: 1fr 0.7fr 1fr 1fr;
-      gap: 8px;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-      color: var(--text-muted);
+    .holdings-table th {
+      text-align: left;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
     }
-    .table-header.with-pnl {
-      grid-template-columns: 1fr 0.7fr 1fr 1fr 1fr 1fr;
-    }
-    .table-row {
-      display: grid;
-      grid-template-columns: 1fr 0.7fr 1fr 1fr;
-      gap: 8px;
-      padding: 10px 0;
+    .holdings-table td {
+      padding: 10px 8px;
       border-bottom: 1px solid var(--border-light);
-      align-items: center;
+      color: var(--text-primary);
     }
-    .table-row.with-pnl {
-      grid-template-columns: 1fr 0.7fr 1fr 1fr 1fr 1fr;
-    }
-    .table-row:last-child {
+    .holdings-table tbody tr:last-child td {
       border-bottom: none;
+    }
+    .holdings-table tbody tr:hover {
+      background: var(--bg-card-hover);
     }
     .ticker-col {
       font-weight: 600;

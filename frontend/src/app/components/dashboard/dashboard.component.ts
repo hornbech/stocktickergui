@@ -34,7 +34,7 @@ import { MarketHoursComponent } from '../market-hours/market-hours.component';
   template: `
     <header class="app-header">
       <div class="header-left">
-        <button class="info-btn" (click)="showInfoPanel.set(!showInfoPanel())" title="About">
+        <button class="info-btn" (click)="showInfoPanel.set(!showInfoPanel())" [attr.aria-expanded]="showInfoPanel()" aria-label="About this app">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
           </svg>
@@ -46,7 +46,7 @@ import { MarketHoursComponent } from '../market-hours/market-hours.component';
           Stock Overview
         </h1>
         @if (lastUpdated()) {
-          <span class="last-updated">Updated {{ lastUpdated() }}</span>
+          <span class="last-updated" aria-live="polite" aria-atomic="true">Updated {{ lastUpdated() }}</span>
         }
       </div>
       <div class="header-right">
@@ -60,7 +60,7 @@ import { MarketHoursComponent } from '../market-hours/market-hours.component';
       <div class="info-panel fade-in">
         <div class="info-panel-header">
           <h3>About Stock Overview</h3>
-          <button class="info-close" (click)="showInfoPanel.set(false)">
+          <button class="info-close" (click)="showInfoPanel.set(false)" aria-label="Close about panel">
             <svg viewBox="0 0 16 16" width="14" height="14">
               <path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.749.749 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.749.749 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
             </svg>
@@ -135,23 +135,31 @@ import { MarketHoursComponent } from '../market-hours/market-hours.component';
     }
 
     <main class="main-content">
-      <div class="view-toggle">
+      <div class="view-toggle" role="tablist" aria-label="Dashboard views">
         <button
+          role="tab"
+          [attr.aria-selected]="activeView() === 'overview'"
           [class.active]="activeView() === 'overview'"
           (click)="setActiveView('overview')">
           Overview
         </button>
         <button
+          role="tab"
+          [attr.aria-selected]="activeView() === 'watchlist'"
           [class.active]="activeView() === 'watchlist'"
           (click)="setActiveView('watchlist')">
           Watchlist
         </button>
         <button
+          role="tab"
+          [attr.aria-selected]="activeView() === 'holdings'"
           [class.active]="activeView() === 'holdings'"
           (click)="setActiveView('holdings')">
           Holdings
         </button>
         <button
+          role="tab"
+          [attr.aria-selected]="activeView() === 'pension'"
           [class.active]="activeView() === 'pension'"
           (click)="setActiveView('pension')">
           Pension

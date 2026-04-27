@@ -96,6 +96,12 @@ import { NewsItem } from '../../models/stock.model';
         transform: translateX(-50%);
       }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-content {
+        animation: none;
+        overflow-x: auto;
+      }
+    }
     .ticker-item {
       display: inline-flex;
       align-items: center;

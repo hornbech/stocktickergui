@@ -102,80 +102,86 @@ interface HoldingItem {
           <app-stock-chart [symbol]="selectedSymbol()"></app-stock-chart>
         }
 
-        <div class="summary-table">
-          <div class="table-header">
-            <span>Ticker</span>
-            <span>Price</span>
-            <span>Shares</span>
-            <span>GAK</span>
-            <span>Value</span>
-            <span>P&L</span>
-            <span></span>
-          </div>
-          @for (item of holdingItems(); track item.entry.symbol) {
-            <div class="table-row" [class.selected]="selectedSymbol() === item.entry.symbol" (click)="onSymbolSelected(item.entry.symbol)">
-              <span class="ticker">
-                <span class="symbol">{{ item.entry.symbol }}</span>
-                @if (item.quote) {
-                  <span class="currency">{{ currencyService.currencyLabel(item.quote.currency) }}</span>
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th scope="col">Ticker</th>
+              <th scope="col">Price</th>
+              <th scope="col">Shares</th>
+              <th scope="col">GAK</th>
+              <th scope="col">Value</th>
+              <th scope="col">P&amp;L</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of holdingItems(); track item.entry.symbol) {
+              <tr class="table-row" [class.selected]="selectedSymbol() === item.entry.symbol" (click)="onSymbolSelected(item.entry.symbol)">
+                <td class="ticker">
+                  <span class="symbol">{{ item.entry.symbol }}</span>
+                  @if (item.quote) {
+                    <span class="currency">{{ currencyService.currencyLabel(item.quote.currency) }}</span>
+                  }
+                  <span class="external-links">
+                    <a class="ext-link" [href]="'https://finance.yahoo.com/quote/' + item.entry.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="Yahoo Finance">
+                      <svg viewBox="0 0 24 24" width="13" height="13"><circle cx="12" cy="12" r="11" fill="#7B1FA2"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">Y</text></svg>
+                    </a>
+                    <a class="ext-link" [href]="'https://stocktwits.com/symbol/' + item.entry.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="StockTwits">
+                      <svg viewBox="0 0 24 24" width="13" height="13"><circle cx="12" cy="12" r="11" fill="#1DA1F2"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="700" fill="white" font-family="Arial,sans-serif">ST</text></svg>
+                    </a>
+                    <a class="ext-link" [href]="'https://www.reddit.com/search/?q=%24' + item.entry.symbol + '+stock'" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="Reddit">
+                      <svg viewBox="0 0 24 24" width="13" height="13"><circle cx="12" cy="12" r="11" fill="#FF4500"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="Arial,sans-serif">R</text></svg>
+                    </a>
+                  </span>
+                </td>
+                <td>{{ item.quote ? currencyService.formatNative(item.quote.regularMarketPrice, item.quote?.currency || 'USD') : '—' }}</td>
+                <td class="editable-cell">
+                  <input type="number"
+                    [value]="item.entry.shares"
+                    (click)="$event.stopPropagation()"
+                    (change)="onSharesChange(item.entry.symbol, $event)"
+                    min="0" step="1">
+                </td>
+                <td class="editable-cell">
+                  <input type="number"
+                    [value]="item.entry.avgPrice"
+                    (click)="$event.stopPropagation()"
+                    (change)="onAvgPriceChange(item.entry.symbol, $event)"
+                    min="0" step="0.01">
+                </td>
+                <td>{{ currencyService.formatConverted(holdingItemValue(item), item.quote?.currency || 'USD') }}</td>
+                <td [class.positive]="holdingPnL(item) >= 0" [class.negative]="holdingPnL(item) < 0">
+                  {{ holdingPnL(item) >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(holdingPnL(item)), item.quote?.currency || 'USD') }}
+                  @if (item.entry.avgPrice > 0) {
+                    ({{ holdingPnLPercent(item) >= 0 ? '+' : '' }}{{ holdingPnLPercent(item).toFixed(2) }}%)
+                  }
+                </td>
+                <td class="actions">
+                  <button class="remove-btn" (click)="removeHolding(item.entry.symbol)" [attr.aria-label]="'Remove ' + item.entry.symbol">
+                    <svg viewBox="0 0 16 16" width="12" height="12">
+                      <path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.749.749 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.749.749 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="table-footer">
+              <td>Total</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>{{ currencyService.formatDisplay(totalHoldingValue()) }}</td>
+              <td [class.positive]="totalHoldingPnL() >= 0" [class.negative]="totalHoldingPnL() < 0">
+                @if (totalHoldingPnL() !== 0) {
+                  {{ totalHoldingPnL() >= 0 ? '+' : '' }}{{ currencyService.formatDisplay(Math.abs(totalHoldingPnL())) }}
                 }
-                <span class="external-links">
-                  <a class="ext-link" [href]="'https://finance.yahoo.com/quote/' + item.entry.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="Yahoo Finance">
-                    <svg viewBox="0 0 24 24" width="13" height="13"><circle cx="12" cy="12" r="11" fill="#7B1FA2"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">Y</text></svg>
-                  </a>
-                  <a class="ext-link" [href]="'https://stocktwits.com/symbol/' + item.entry.symbol" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="StockTwits">
-                    <svg viewBox="0 0 24 24" width="13" height="13"><circle cx="12" cy="12" r="11" fill="#1DA1F2"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="700" fill="white" font-family="Arial,sans-serif">ST</text></svg>
-                  </a>
-                  <a class="ext-link" [href]="'https://www.reddit.com/search/?q=%24' + item.entry.symbol + '+stock'" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()" title="Reddit">
-                    <svg viewBox="0 0 24 24" width="13" height="13"><circle cx="12" cy="12" r="11" fill="#FF4500"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="Arial,sans-serif">R</text></svg>
-                  </a>
-                </span>
-              </span>
-              <span>{{ item.quote ? currencyService.formatNative(item.quote.regularMarketPrice, item.quote?.currency || 'USD') : '—' }}</span>
-              <span class="editable-cell">
-                <input type="number"
-                  [value]="item.entry.shares"
-                  (click)="$event.stopPropagation()"
-                  (change)="onSharesChange(item.entry.symbol, $event)"
-                  min="0" step="1">
-              </span>
-              <span class="editable-cell">
-                <input type="number"
-                  [value]="item.entry.avgPrice"
-                  (click)="$event.stopPropagation()"
-                  (change)="onAvgPriceChange(item.entry.symbol, $event)"
-                  min="0" step="0.01">
-              </span>
-              <span>{{ currencyService.formatConverted(holdingItemValue(item), item.quote?.currency || 'USD') }}</span>
-              <span [class.positive]="holdingPnL(item) >= 0" [class.negative]="holdingPnL(item) < 0">
-                {{ holdingPnL(item) >= 0 ? '+' : '' }}{{ currencyService.formatConverted(Math.abs(holdingPnL(item)), item.quote?.currency || 'USD') }}
-                @if (item.entry.avgPrice > 0) {
-                  ({{ holdingPnLPercent(item) >= 0 ? '+' : '' }}{{ holdingPnLPercent(item).toFixed(2) }}%)
-                }
-              </span>
-              <span class="actions">
-                <button class="remove-btn" (click)="removeHolding(item.entry.symbol)" title="Remove">
-                  <svg viewBox="0 0 16 16" width="12" height="12">
-                    <path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.749.749 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.749.749 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
-                  </svg>
-                </button>
-              </span>
-            </div>
-          }
-          <div class="table-footer">
-            <span>Total</span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span>{{ currencyService.formatDisplay(totalHoldingValue()) }}</span>
-            <span [class.positive]="totalHoldingPnL() >= 0" [class.negative]="totalHoldingPnL() < 0">
-              @if (totalHoldingPnL() !== 0) {
-                {{ totalHoldingPnL() >= 0 ? '+' : '' }}{{ currencyService.formatDisplay(Math.abs(totalHoldingPnL())) }}
-              }
-            </span>
-            <span></span>
-          </div>
-        </div>
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
       }
     </div>
   `,
@@ -220,9 +226,6 @@ interface HoldingItem {
       font-weight: 500;
       cursor: pointer;
       transition: all var(--transition);
-    }
-    .add-btn:hover {
-      opacity: 0.9;
     }
     .add-form {
       display: flex;
@@ -287,14 +290,15 @@ interface HoldingItem {
       padding-left: 32px;
     }
     .search-results {
-      position: fixed;
-      min-width: 250px;
-      max-width: 300px;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow-lg);
-      z-index: 1000;
+      z-index: 200;
       max-height: 250px;
       overflow-y: auto;
     }
@@ -333,40 +337,39 @@ interface HoldingItem {
       padding: 16px 20px;
     }
     .summary-table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 13px;
     }
-    .table-header, .table-row, .table-footer {
-      display: grid;
-      grid-template-columns: 1.5fr 1fr 0.8fr 0.8fr 1fr 1.2fr 50px;
-      gap: 12px;
-      padding: 12px 20px;
-      align-items: center;
-    }
-    .table-header {
+    .summary-table th {
+      text-align: left;
       font-size: 11px;
       font-weight: 600;
-      color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .summary-table td {
+      padding: 8px;
       border-bottom: 1px solid var(--border-light);
+      color: var(--text-primary);
+    }
+    .summary-table tfoot td {
+      font-weight: 600;
+      border-top: 1px solid var(--border);
+      border-bottom: none;
+      background: var(--bg-secondary);
     }
     .table-row {
-      border-bottom: 1px solid var(--border-light);
       cursor: pointer;
     }
-    .table-row:hover {
+    .table-row:hover td {
       background: var(--bg-card-hover);
     }
-    .table-row.selected {
+    .table-row.selected td {
       background: var(--blue-bg);
-    }
-    .table-row:last-of-type {
-      border-bottom: none;
-    }
-    .table-footer {
-      font-weight: 600;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border-light);
     }
     .ticker {
       display: flex;
